@@ -1,0 +1,79 @@
+name: "Documents Site Image Release"
+
+plugins:
+  - name: "git"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.5"
+  - name: "gh"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0-next.6"
+    config:
+      token: $(GITHUB_TOKEN)
+  - name: "sr"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.5"
+    config:
+      openAi:
+        apiKey: $(OPENAI_API_KEY)
+  - name: "docker"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Docker/1.0.0-next.4"
+
+stages:
+  analyze:
+    - name: repo
+      run: git.repo-context
+    - name: tag
+      run: git.latest-tag
+      config:
+        prefix: "docs-v"
+    - name: commits
+      run: git.commits
+    - name: ghItems
+      run: gh.related-items
+      config:
+        commits: $(output:commits:details)
+    - name: conventionalCommits
+      run: sr.analyze
+      haltIf: output.conventionalCommits.commitCount == 0
+      config:
+        commits: $(output:commits:details)
+        includeScopes:
+          - docs
+    - name: version
+      run: sr.calculate-version
+      haltIf: "!output.version.hasNewVersion"
+      config:
+        branch: $(output:repo:branch)
+        baseVersion: $(output:tag:name)
+        prereleaseMappings:
+          dev: next
+    - name: changelog
+      run: sr.generate-changelog
+
+  build:
+    - name: login
+      run: docker.login
+      config:
+        username: $(DOCKER_USER)
+        password: $(DOCKER_PAT)
+    - name: buildx
+      run: docker.setup-buildx
+      config:
+        driver: cloud
+        endpoint: "wolfware/wolfware-builder"
+    - name: build-and-push
+      run: docker.build-and-push
+      config:
+        file: "Dockerfile"
+        tags:
+          - "wolfware/moonlit-docs:$(output:version:nextVersion)"
+          - "wolfware/moonlit-docs:latest"
+
+  release:
+    - name: createRelease
+      run: gh.create-release
+      config:
+        name: "Docs Release $(output:version:nextVersion)"
+        tag: docs-v$(output:version:nextVersion)
+        label: "released on @$(output:repo:branch)"
+        changelog: $(output:changelog:categories)
+        prerelease: $(output:version:isPrerelease)
+        pullRequests: $(output:ghItems:pullRequests)
+        issues: $(output:ghItems:issues)

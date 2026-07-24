@@ -1,0 +1,7 @@
+.git
+.gitignore
+node_modules
+.vitepress/cache
+.vitepress/dist
+*.md.snap
+.DS_Store
