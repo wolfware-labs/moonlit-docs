@@ -114,7 +114,9 @@ export default withMermaid({
             { text: 'How Moonlit Works', link: '/guide/concepts/how-it-works' },
             { text: 'Plugins System', link: '/guide/concepts/plugins' },
             { text: 'Stages and Steps', link: '/guide/concepts/stages-steps' },
-            { text: 'Configuration', link: '/guide/concepts/configuration' }
+            { text: 'Configuration', link: '/guide/concepts/configuration' },
+            { text: 'Middlewares', link: '/guide/concepts/middlewares' },
+            { text: 'Sandboxing', link: '/guide/concepts/sandboxing' }
           ]
         },
         {
