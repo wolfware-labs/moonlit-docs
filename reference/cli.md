@@ -39,7 +39,7 @@ moonlit run [-f|--file <path>] [-w|--working-dir <path>] [-s|--stage <name>]... 
 | `-f`, `--file <path>` | Pipeline file to run. When omitted, Moonlit looks for `release.yml` in the working directory, falling back to `moonlit.yml` if that isn't present. |
 | `-w`, `--working-dir <path>` (alias `-d`) | Working directory for the run. Default: the current directory. |
 | `-s`, `--stage <name>` | Run only the named stage(s). Repeatable and/or comma-separated (`-s build,test` and `-s build -s test` are equivalent). Default: all stages. |
-| `-a`, `--arg <key=value>` | Set a pipeline argument, overriding the same key under the YAML's `arguments:` section. Repeatable. An entry without an `=` fails with `Invalid argument format: <value>` (exit code 2). |
+| `-a`, `--arg <key=value>` | Set a pipeline argument, overriding the same key under the YAML's `arguments:` section. Repeatable. An entry without an `=` is rejected at argument-parsing time with `expected key=value, got '<value>'`. |
 | `--offline` | Fail on a plugin cache miss instead of pulling from the network. |
 | `--step-timeout <duration>` | Per-step timeout, e.g. `300s`, `1m30s` ([humantime](https://docs.rs/humantime) syntax). No timeout by default. |
 | `--dry-run` | Load and validate the pipeline — resolving plugins and verifying middleware references — without executing any step. |
