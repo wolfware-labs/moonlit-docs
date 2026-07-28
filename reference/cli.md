@@ -1,154 +1,187 @@
 ---
 title: Command Line Interface
-description: Reference documentation for Moonlit's command line interface
+description: Reference documentation for the moonlit command-line interface
 ---
 
 # Command Line Interface
 
-Moonlit provides a command-line interface (CLI) that allows you to run your release pipelines. This page documents the available commands and options.
+The `moonlit` binary is the entry point for running pipelines, validating configuration, and managing plugins. This page documents every command and flag.
 
-## Basic Usage
+## Synopsis
 
 ```bash
-moonlit [options]
+moonlit [--output <pretty|json|plain>] [-v|--verbose] [<command>] [<args>]
 ```
 
-## Global Options
+With no command, `moonlit` behaves exactly like [`moonlit version`](#moonlit-version).
 
-| Option | Short | Description | Default |
-|--------|-------|-------------|---------|
-| `--file` | `-f` | Path to the configuration file | `moonlit.yml` in the current directory |
-| `--stages` | `-s` | Comma-separated list of stages to run | All stages |
-| `--working-directory` | `-d` | Working directory for the pipeline | Current directory |
-| `--verbose` | `-v` | Enable verbose logging | `false` |
-| `--help` | `-h` | Show help information | - |
-| `--version` | - | Show version information | - |
+## Global Flags
 
-## Examples
+These flags apply to every command:
 
-### Run all stages using the default configuration file
+| Flag | Description |
+|---|---|
+| `--output <pretty\|json\|plain>` | Output mode. When omitted, Moonlit auto-detects: `pretty` on a TTY, `plain` otherwise (e.g. in CI). `json` emits one machine-readable JSON object per line and is never auto-selected — pass it explicitly. |
+| `-v`, `--verbose` | Enable `DEBUG`/`TRACE` logging, including per-step middleware/version lines and expression-resolution traces. Without it, errors print a single-line cause; with it, the full error chain. |
+
+`moonlit --help` and `moonlit <command> --help` print usage for any command.
+
+## `moonlit run`
+
+Runs a release pipeline.
 
 ```bash
+moonlit run [-f|--file <path>] [-w|--working-dir <path>] [-s|--stage <name>]... [-a|--arg <key=value>]... [--offline] [--step-timeout <duration>] [--dry-run]
+```
+
+| Flag | Description |
+|---|---|
+| `-f`, `--file <path>` | Pipeline file to run. Default: `release.yml` in the working directory. |
+| `-w`, `--working-dir <path>` (alias `-d`) | Working directory for the run. Default: the current directory. |
+| `-s`, `--stage <name>` | Run only the named stage(s). Repeatable and/or comma-separated (`-s build,test` and `-s build -s test` are equivalent). Default: all stages. |
+| `-a`, `--arg <key=value>` | Set a pipeline argument, overriding the same key under the YAML's `arguments:` section. Repeatable. An entry without an `=` fails with `Invalid argument format: <value>` (exit code 2). |
+| `--offline` | Fail on a plugin cache miss instead of pulling from the network. |
+| `--step-timeout <duration>` | Per-step timeout, e.g. `300s`, `1m30s` ([humantime](https://docs.rs/humantime) syntax). No timeout by default. |
+| `--dry-run` | Load and validate the pipeline — resolving plugins and verifying middleware references — without executing any step. |
+
+Examples:
+
+```bash
+# Run every stage using ./release.yml
+moonlit run
+
+# Run specific stages from a named file
+moonlit run -f ./ci/release.yml -s build,test
+
+# Override a pipeline argument and cap each step at 5 minutes
+moonlit run -a configuration=Release --step-timeout 5m
+```
+
+## `moonlit validate`
+
+Parses the pipeline, resolves its plugins, and verifies every `run:` reference — without executing anything. Equivalent to `moonlit run --dry-run`, plus a confirmation line on success.
+
+```bash
+moonlit validate [-f|--file <path>] [-w|--working-dir <path>]
+```
+
+| Flag | Description |
+|---|---|
+| `-f`, `--file <path>` | Pipeline file to validate. Default: `release.yml` in the working directory. |
+| `-w`, `--working-dir <path>` (alias `-d`) | Working directory. Default: the current directory. |
+
+On success, prints `✔ Configuration valid` and exits `0`. On failure, it prints the same miette diagnostics `run` would (see [Error Handling](./error-handling.md)) and exits with the matching code.
+
+## `moonlit plugin`
+
+Scaffold, build, inspect, and publish plugins.
+
+### `moonlit plugin new <name>`
+
+Scaffolds a new plugin crate from the SDK templates, in a new `<name>/` directory.
+
+```bash
+moonlit plugin new <name> [--namespace <org>] [--description <text>] [--license <spdx-id>] [--sdk-path <path>]
+```
+
+| Flag | Description |
+|---|---|
+| `--namespace <org>` | Publish namespace. On a TTY, prompted with your `git config user.name` (or `my-org`) as the default; used as-is without a prompt when passed. |
+| `--description <text>` | One-line crate description. Prompted on a TTY; empty by default. |
+| `--license <spdx-id>` | SPDX license identifier (e.g. `Apache-2.0`, `MIT`, `Elastic-2.0`). Prompted on a TTY; defaults to `Apache-2.0`. |
+| `--sdk-path <path>` | Emit a local `path = …` dependency on `moonlit-plugin-sdk` instead of a published crates.io version — for developing the SDK and a plugin together. |
+
+Interactive prompts only appear when both stdin and stderr are a TTY; otherwise every unset flag falls back to its default.
+
+### `moonlit plugin build`
+
+Builds the plugin in the current directory (or `--manifest-path`) to a WASI Preview 2 component, via `cargo build --target wasm32-wasip2`.
+
+```bash
+moonlit plugin build [--release] [--manifest-path <dir>]
+```
+
+| Flag | Description |
+|---|---|
+| `--release` | Build in release mode (optimized, smaller component). |
+| `--manifest-path <dir>` | Directory containing the plugin crate's `Cargo.toml`. Default: the current directory. |
+
+Fails with exit code `2` if the crate isn't a plugin crate (`[lib] crate-type = ["cdylib"]`) or the `wasm32-wasip2` target isn't installed (`rustup target add wasm32-wasip2`), and `4` if `cargo build` itself fails.
+
+### `moonlit plugin inspect <PATH|REF>`
+
+Prints a component's metadata (name, version, description) and the middlewares it exports, by instantiating it with zero capability grants.
+
+```bash
+moonlit plugin inspect <path|ref>
+```
+
+`<path|ref>` accepts either a path to a built `.wasm` component, or a plugin reference (`oci://…`, `file://…`, `http(s)://…`) — see [plugin URL schemes](./config-file.md#plugin-url-schemes). A reference is resolved (and pulled if not cached) the same way the engine resolves plugins for a run.
+
+### `moonlit plugin publish <REF>`
+
+Publishes a built component to an OCI registry.
+
+```bash
+moonlit plugin publish <ref> [--file <path>] [--manifest-path <dir>]
+```
+
+| Flag | Description |
+|---|---|
+| `<ref>` | Target reference, e.g. `oci://ghcr.io/acme/plugin:1.0.0` or `ghcr.io/acme/plugin:1.0.0` (the `oci://` scheme is optional here). |
+| `--file <path>` | Component file to publish. Default: the crate's release build output (`target/wasm32-wasip2/release/<name>.wasm`). |
+| `--manifest-path <dir>` | Directory containing the plugin crate's `Cargo.toml`. Default: the current directory. |
+
+Publishing reads the crate's `Cargo.toml` (`repository`, `license`) and `Cargo.lock` (the resolved `moonlit-plugin-sdk` version) to attach provenance metadata to the pushed artifact. Requires prior [`moonlit login`](#moonlit-login-host) for a private registry.
+
+## `moonlit version`
+
+Prints a banner, the CLI version, author, and license. This is also the default when no command is given.
+
+```bash
+moonlit version
+# or, equivalently:
 moonlit
 ```
 
-### Run specific stages
+## `moonlit login <host>`
+
+Stores credentials for an OCI registry (used by `plugin publish` and by plugin resolution for private `oci://` references).
 
 ```bash
-moonlit -s build,test
+moonlit login <host> [--username <name>] [--token <token>]
 ```
 
-### Specify a configuration file
+| Flag | Description |
+|---|---|
+| `<host>` | Registry host, e.g. `ghcr.io` or `registry.moonlitbuild.dev`. |
+| `--username <name>` | Registry username for Basic auth. On a TTY, prompted (leave blank for token-only/Bearer auth). |
+| `--token <token>` | Registry token or password. On a TTY, prompted with hidden input; **required** when stdin isn't a TTY. |
 
-```bash
-moonlit -f ./path/to/moonlit.yml
+Credentials are written to `~/.config/moonlit/credentials.toml` with `0600` permissions on Unix, keyed by host.
+
+## `moonlit cache`
+
+Inspects or clears the plugin content cache.
+
+### `moonlit cache ls`
+
+Lists cached plugin artifacts (source reference, digest, size, middleware count). Respects `--output`: `pretty` renders a table, `plain` renders one line per entry, `json` renders an array of objects.
+
+### `moonlit cache clean`
+
+Removes all cached content and reports how much was freed:
+
 ```
-
-### Specify a working directory
-
-```bash
-moonlit -d ./path/to/working/directory
-```
-
-### Combine multiple options
-
-```bash
-moonlit -f ./path/to/moonlit.yml -s build,test -d ./path/to/working/directory -v
-```
-
-## Environment Variables
-
-Moonlit uses environment variables for sensitive information and configuration. You can set these variables before running Moonlit:
-
-```bash
-# For Windows
-set GITHUB_TOKEN=your_github_token
-set NUGET_API_KEY=your_nuget_api_key
-
-# For macOS/Linux
-export GITHUB_TOKEN=your_github_token
-export NUGET_API_KEY=your_nuget_api_key
-```
-
-These environment variables can then be referenced in your configuration file:
-
-```yaml
-config:
-  token: $(GITHUB_TOKEN)
-  apiKey: $(NUGET_API_KEY)
+Removed 4 plugins, 9 blobs, 3 refs; freed 18874368 bytes.
 ```
 
 ## Exit Codes
 
-Moonlit returns the following exit codes:
-
-| Code | Description |
-|------|-------------|
-| 0 | Success |
-| 1 | General error |
-| 2 | Configuration error |
-| 3 | Plugin error |
-| 4 | Pipeline execution error |
-
-## Logging
-
-By default, Moonlit logs information to the console. You can enable verbose logging with the `-v` or `--verbose` option to see more detailed information.
-
-The log format includes:
-- Timestamp
-- Log level (INFO, WARNING, ERROR)
-- Message
-
-Example:
-```
-🚀 Executing release pipeline: My Pipeline
-📁 Working Directory: D:\path\to\your\project
-⚙ Configuration File: moonlit.yml
-
-[00:17:08]   ================================================================================
-[00:17:08]   Step: step
-[00:17:08]   Middleware: Wolfware.Moonlit.Plugins.Example.Middlewares.ExampleMiddleware
-[00:17:08]   Version: 1.0.0
-[00:17:08]   ================================================================================
-[00:17:08]       INFO Log message
-[00:17:08]       WARN Warning message
-[00:17:08]       ERROR Error message
-[00:17:08]   --------------------------------------------------------------------------------
-[00:17:08]   SUCCESS - Execution time: 125 ms.
-[00:17:08]   --------------------------------------------------------------------------------
-```
-
-## Advanced Usage
-
-### Running in CI/CD Environments
-
-When running Moonlit in a CI/CD environment, it's recommended to:
-
-1. Set sensitive information as environment variables
-2. Use the `-f` option to specify the configuration file
-3. Use the `-s` option to run specific stages if needed
-
-Example for GitHub Actions:
-
-```yaml
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-dotnet@v1
-        with:
-          dotnet-version: '9.0.x'
-      - run: dotnet tool install --global moonlit-cli
-      - run: moonlit -f ./moonlit.yml -s build,publish
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-```
-
+`moonlit` returns a small, stable set of exit codes across every command that loads or executes a pipeline. See [Error Handling](./error-handling.md#exit-codes) for the full table and how errors are rendered.
 
 ## Next Steps
 
-- Learn about the [configuration file structure](./config-file.md)
-- Explore the [available plugins](../plugins/)
-- See [examples](../plugins/examples/nuget-release.md) of complete pipelines
+- [Configuration File Reference](./config-file.md) for the pipeline YAML schema
+- [Error Handling](./error-handling.md) for exit codes and diagnostic output
+- [Plugin System](./plugin-system.md) for how plugins are resolved, cached, and sandboxed

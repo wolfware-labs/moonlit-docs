@@ -1,163 +1,177 @@
 ---
 title: Configuration File Reference
-description: Detailed reference for Moonlit's YAML configuration file format
+description: Detailed reference for Moonlit's YAML pipeline configuration file format
 ---
 
 # Configuration File Reference
 
-This page provides a detailed reference for Moonlit's YAML configuration file format. For a conceptual overview of configuration, see the [Configuration](../guide/concepts/configuration.md) page.
+This page is the complete property-by-property reference for Moonlit's YAML pipeline file. For a conceptual walkthrough of how configuration is layered, substituted, and evaluated at run time, see [Configuration](../guide/concepts/configuration.md); for how stages and steps execute, see [Stages and Steps](../guide/concepts/stages-steps.md).
 
-## File Structure
+## File Name and Location
 
-A Moonlit configuration file has the following structure:
+By default, `moonlit run` and `moonlit validate` look for `release.yml` in the working directory. Point them at a different file with `-f`/`--file` — both `.yml` and `.yaml` extensions are accepted.
+
+## Top-Level Schema
 
 ```yaml
-name: "Pipeline Name"
-
-plugins:
-  - name: "plugin1"
-    url: "nuget://nuget.org/Package.Name/Version"
-    config:
-      # Plugin-specific configuration
-
-stages:
-  stage1:
-    - name: "step1"
-      run: "plugin1.middleware1"
-      config:
-        # Step-specific configuration
+name: string                # trimmed; default ""
+arguments:                  # map<string, string>
+  key: value
+variables:                  # map<string, string>
+  key: value
+plugins:                    # array of Plugin; required, non-empty
+  - name: string
+    url: string
+    config: { ... }
+    permissions: { ... }
+stages:                     # ordered map<stageName, array<Step>>
+  stageName:
+    - name: string
+      run: plugin.middleware
+      condition: string
+      haltIf: string
+      continueOnError: boolean
+      config: { ... }
 ```
 
-## Top-Level Properties
-
 | Property | Type | Required | Description |
-|----------|------|----------|-------------|
-| `name` | string | Yes | The name of your pipeline |
-| `plugins` | array | Yes | A list of plugins to use in your pipeline |
-| `stages` | object | Yes | A dictionary of stages, each containing a list of steps |
+|---|---|---|---|
+| `name` | string | No | The pipeline's name, shown in the run header. Trimmed; defaults to an empty string. |
+| `arguments` | map\<string, string\> | No | Values overridable from the command line with `-a`/`--arg key=value`, referenced in `config:` blocks as `$(args:key)`. |
+| `variables` | map\<string, string\> | No | Values referenced in `config:` blocks as `$(vars:key)`. |
+| `plugins` | array of [Plugin](#plugin-properties) | **Yes** | The plugins available to this pipeline. Must be non-empty. |
+| `stages` | ordered map of stage name → array of [Step](#step-properties) | **Yes** | Must contain at least one stage. |
+
+A pipeline with no `stages` fails with `No stages found in the release configuration.`; a pipeline with stages but no `plugins` fails with `At least one plugin configuration must be provided.` Both are configuration errors (exit code 2) — see [Error Handling](./error-handling.md).
 
 ## Plugin Properties
 
-Each plugin entry in the `plugins` array has the following properties:
+Each entry in `plugins` has:
 
 | Property | Type | Required | Description |
-|----------|------|----------|-------------|
-| `name` | string | Yes | A unique identifier for the plugin |
-| `url` | string | Yes | The NuGet package URL |
-| `config` | object | No | Global configuration for the plugin |
+|---|---|---|---|
+| `name` | string | **Yes** | The alias used to reference this plugin's middlewares in `run:` (e.g. `git` in `git.commits`). A plugin missing `name` or reusing a name already declared is a configuration error. |
+| `url` | string | **Yes** | An absolute URL identifying where to load the plugin from. See [Plugin URL Schemes](#plugin-url-schemes). |
+| `config` | map\<string, any\> | No | Plugin-level configuration, `$(...)`-substituted against the base/release layers when the plugin loads. Values are nested arbitrarily; scalars stay as strings until a middleware binds them. |
+| `permissions` | map | No | The plugin's capability grants — network hosts, exec programs, env var patterns, and filesystem access. Omitted means **no** capabilities are granted. See [Sandboxing](../guide/concepts/sandboxing.md) for the full model. |
 
-### Plugin URL Format
-
-The `url` property uses the following format:
-
+```yaml
+plugins:
+  - name: gh
+    url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
+    config:
+      token: $(GITHUB_TOKEN)
+    permissions:
+      network: ["api.github.com"]
+      env: ["GITHUB_*"]
 ```
-nuget://{RepositoryKey}/{PackageName}/{Version}
-```
 
-For example:
-```
-nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0
-```
+## Plugin URL Schemes
 
-Note: The RepositoryKey must match a package source name configured in your NuGet configuration (nuget.config). For example, use `nuget.org` for the public NuGet Gallery, or a custom source name like `mycompany` for your private feed.
+| Scheme | Meaning | Example |
+|---|---|---|
+| `oci://` | An OCI artifact — the default way to distribute and consume plugins. | `oci://registry.moonlitbuild.dev/wolfware/git:1.0.0` |
+| `file://` | A local component file, for plugin development. Must point to an existing `.wasm` file. | `file:///home/me/plugin/target/wasm32-wasip2/release/my_plugin.wasm` |
+| `http://` / `https://` | A remote component file, downloaded and cached by URL hash. | `https://example.com/plugins/my-plugin.wasm` |
+
+Any other scheme (or a URL with no scheme at all) is a configuration error naming the supported schemes.
 
 ## Stage Properties
 
-Each stage is a named entry in the `stages` object. The value is an array of steps.
+`stages` is an ordered map of stage name to an array of steps:
+
+```yaml
+stages:
+  build:
+    - name: compile
+      run: dotnet.build
+  publish:
+    - name: push
+      run: dotnet.push
+```
+
+Stages exist for organization and for the `-s`/`--stage` filter — at run time, all stages flatten into a single ordered list of steps executed one after another. See [Stages and Steps](../guide/concepts/stages-steps.md) for the full execution model.
 
 ## Step Properties
 
-Each step within a stage has the following properties:
+Each step within a stage has:
 
 | Property | Type | Required | Description |
-|----------|------|----------|-------------|
-| `name` | string | Yes | A unique identifier for the step |
-| `run` | string | Yes | The middleware to execute, in the format `pluginName.middlewareName` |
-| `condition` | string | No | A condition that must be true for the step to execute |
-| `continueOnError` | boolean | No | Whether to continue execution if the step fails (default: `false`) |
-| `config` | object | No | Configuration settings for the middleware |
-
-### Step Run Format
-
-The `run` property uses the following format:
-
-```
-{pluginName}.{middlewareName}
-```
-
-For example:
-```
-git.repo-context
-```
-
-### Step Condition Format
-
-The `condition` property is a string expression that is evaluated at runtime. It can use output variables from previous steps:
+|---|---|---|---|
+| `name` | string | **Yes** | A unique identifier for the step; also the key under which its outputs are exposed (`output:<name>:<key>`). Missing it fails with `Step '<name>' is missing a 'run' entry.`-style diagnostics pointing at the step. |
+| `run` | string | **Yes** | The middleware to invoke, `pluginName.middlewareName` — split on the **first** `.` only. A malformed value fails with `Invalid run format: <value>. Expected format: 'plugin.middleware'`. |
+| `condition` | string | No | An expression; the step is skipped when it evaluates to anything other than `true`. |
+| `haltIf` | string | No | An expression; the pipeline stops cleanly after this step when it evaluates to `true`. Unlike `condition`, a `haltIf` that fails to evaluate **fails the step**. |
+| `continueOnError` | boolean | No, default `false` | Continue the pipeline if this step fails, instead of stopping. |
+| `config` | map\<string, any\> | No | Step-level configuration, merged over the accumulated configuration and `$(...)`-substituted at run time. |
 
 ```yaml
-condition: "$(output:repo:branch) == 'main'"
+stages:
+  analyze:
+    - name: version
+      run: sr.calculate-version
+      haltIf: "!output.version.hasNewVersion"
+      config:
+        branch: $(output:repo:branch)
+        baseVersion: $(output:tag:name)
 ```
 
-## Variable Substitution
+## Parsing Rules
 
-Moonlit supports variable substitution in your configuration file using the following syntax:
+- Top-level and nested keys are matched **case-insensitively** (they're lowercased before matching).
+- **Unknown keys are silently ignored** at every level.
+- `config:` values are parsed to `Null | String | List | Map` — scalars are kept as raw strings at parse time; type coercion to `bool`/integer/float/datetime happens only when a value is bound or used in a condition.
+- `arguments`/`variables` entries with `null` values are dropped; missing collections default to empty.
+- All validation errors are rendered as [miette diagnostics](./error-handling.md) with a labeled span pointing at the offending YAML.
 
-### Environment Variables
+## `$(...)` Value Substitution
 
-```
-$(VARIABLE_NAME)
-```
+Anywhere in the file, `$(...)` resolves a path against the accumulated configuration (environment, `variables`/`arguments`, plugin config, and prior steps' outputs):
 
-For example:
 ```yaml
-token: $(GITHUB_TOKEN)
+config:
+  token: $(GITHUB_TOKEN)                     # environment variable
+  branch: $(output:repo:branch)              # an earlier step's output
+  configuration: $(BUILD_CONFIGURATION:Release)   # with a literal default
 ```
 
-### Environment Variables with Default Values
-
-```
-$(VARIABLE_NAME:defaultValue)
-```
-
-For example:
-```yaml
-configuration: $(BUILD_CONFIGURATION:Release)
-```
-
-### Output Variables
-
-```
-$(output:stepName:propertyName)
-```
-
-For example:
-```yaml
-branch: $(output:repo:branch)
-```
+See [Configuration](../guide/concepts/configuration.md) for the full substitution, layering, and condition-expression rules — they apply identically wherever `$(...)` appears in this file.
 
 ## Complete Example
 
-Here's a complete example of a configuration file:
-
 ```yaml
-name: "NuGet Package Release"
+name: "Package Release"
+
+variables:
+  projectPath: "./src/MyProject.csproj"
+  versionPrefix: "v"
+
+arguments:
+  configuration: "Release"
 
 plugins:
-  - name: "git"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.5"
-  - name: "gh"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0-next.6"
+  - name: git
+    url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
+    permissions:
+      exec: ["git"]
+      filesystem: read-write
+
+  - name: gh
+    url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
     config:
       token: $(GITHUB_TOKEN)
-  - name: "sr"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.5"
-    config:
-      openAi:
-        apiKey: $(OPENAI_API_KEY)
-  - name: "dotnet"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Dotnet/1.0.0-next.5"
-    config:
-      nugetApiKey: $(NUGET_API_KEY)
+    permissions:
+      network: ["api.github.com"]
+      env: ["GITHUB_*"]
+
+  - name: sr
+    url: "oci://registry.moonlitbuild.dev/wolfware/semantic-release:1.0.0"
+
+  - name: dotnet
+    url: "oci://registry.moonlitbuild.dev/wolfware/dotnet:1.0.0"
+    permissions:
+      exec: ["dotnet"]
+      filesystem: read-write
 
 stages:
   analyze:
@@ -166,29 +180,20 @@ stages:
     - name: tag
       run: git.latest-tag
       config:
-        prefix: "v"
+        prefix: $(vars:versionPrefix)
     - name: commits
       run: git.commits
-    - name: ghItems
-      run: gh.related-items
-      config:
-        commits: $(output:commits:details)
     - name: conventionalCommits
       run: sr.analyze
       haltIf: output.conventionalCommits.commitCount == 0
       config:
         commits: $(output:commits:details)
-        includeScopes:
-          - myproject
     - name: version
       run: sr.calculate-version
       haltIf: "!output.version.hasNewVersion"
       config:
         branch: $(output:repo:branch)
         baseVersion: $(output:tag:name)
-        prereleaseMappings:
-          main: next
-          develop: beta
     - name: changelog
       run: sr.generate-changelog
 
@@ -196,13 +201,13 @@ stages:
     - name: build
       run: dotnet.build
       config:
-        project: "./src/MyProject.csproj"
+        project: $(vars:projectPath)
         version: $(output:version:nextFullVersion)
-        configuration: $(BUILD_CONFIGURATION:Release)
+        configuration: $(args:configuration)
     - name: pack
       run: dotnet.pack
       config:
-        project: "./src/MyProject.csproj"
+        project: $(vars:projectPath)
         version: $(output:version:nextFullVersion)
 
   release:
@@ -214,38 +219,13 @@ stages:
       run: gh.create-release
       config:
         name: "Release $(output:version:nextVersion)"
-        tag: v$(output:version:nextVersion)
-        label: "released on @$(output:repo:branch)"
+        tag: "$(vars:versionPrefix)$(output:version:nextVersion)"
         changelog: $(output:changelog:categories)
         prerelease: $(output:version:isPrerelease)
-        pullRequests: $(output:ghItems:pullRequests)
-        issues: $(output:ghItems:issues)
 ```
-
-## Schema Validation
-
-Moonlit validates your configuration file against a schema to ensure it's correctly formatted. Common validation errors include:
-
-- Missing required properties
-- Invalid property types
-- Unknown properties
-- Invalid variable syntax
-- Circular dependencies in variable references
-
-If your configuration file is invalid, Moonlit will display an error message with details about the validation failure.
-
-## Best Practices
-
-- Use meaningful names for plugins, stages, and steps
-- Group related steps into stages
-- Use environment variables for sensitive information
-- Use output variables to pass data between steps
-- Provide default values for environment variables when appropriate
-- Keep your configuration file under version control
-- Split large pipelines into multiple files and use includes (if supported)
 
 ## Next Steps
 
-- Explore the [CLI Reference](./cli.md) for command-line options
-- Learn about [creating custom plugins](../guide/advanced/custom-plugins.md)
-- See [examples](../plugins/examples/nuget-release.md) of complete pipelines
+- [CLI Reference](./cli.md) for the `-f`/`-w`/`-s`/`-a` flags that interact with this file
+- [Error Handling](./error-handling.md) for how validation failures are reported
+- [Configuration](../guide/concepts/configuration.md) for the accumulator, substitution, and condition-expression model

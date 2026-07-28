@@ -1,261 +1,101 @@
 ---
 title: Error Handling and Troubleshooting
-description: Guide to error handling and troubleshooting in Moonlit
+description: Exit codes and diagnostic output for moonlit run, validate, and other commands
 ---
 
 # Error Handling and Troubleshooting
 
-This page provides information about error handling in Moonlit and how to troubleshoot common issues.
+This page documents how `moonlit` reports failures: the exit codes it returns, and how diagnostics render in each output mode.
 
-## Error Handling in Middlewares
+## Exit Codes
 
-Middlewares in Moonlit can handle errors in several ways:
+| Code | Meaning |
+|---|---|
+| `0` | Success. |
+| `1` | General or unexpected error (e.g. an internal engine failure, an I/O error unrelated to configuration). |
+| `2` | Configuration error — an invalid or missing pipeline file, a YAML validation failure, an unknown plugin/middleware/stage reference, or a bad CLI argument. |
+| `3` | Plugin load error — a plugin failed to resolve, download, verify, or instantiate. |
+| `4` | Pipeline execution error — a step failed during the run. |
 
-### Returning Failure Results
+These codes are consistent across `run` and `validate` (which shares the same load/resolve path as `run --dry-run`, so it can return `0`, `2`, or `3`, but never `4` — it never executes a step).
 
-The most common way to handle errors is to return a `MiddlewareResult.Failure` with an error message:
+## How Errors Render
 
-```csharp
-public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
-{
-    try
-    {
-        // Get configuration
-        var config = configuration.Get<MyMiddlewareConfig>();
+### Pretty and Plain Modes
 
-        // Validate configuration
-        if (string.IsNullOrEmpty(config.SomeOption))
-        {
-            return Task.FromResult(MiddlewareResult.Failure("SomeOption is required"));
-        }
+Configuration and plugin-load errors are rendered as [miette](https://docs.rs/miette) diagnostics: a human-readable message, a labeled span into the offending YAML when the error can be located in the source, and (for unsupported plugin URL schemes) a help footer. For example, an unresolved plugin alias in a step's `run:` produces a message like:
 
-        // Execute middleware logic
-        // ...
-
-        return Task.FromResult(MiddlewareResult.Success());
-    }
-    catch (Exception ex)
-    {
-        return Task.FromResult(MiddlewareResult.Failure(ex.Message));
-    }
-}
+```
+Plugin 'gh' not found.
 ```
 
-### Using Try-Catch Blocks
+with the diagnostic code `moonlit::config` and a span pointing at the `run:` line that referenced it. In `plain` mode (auto-selected off a TTY, e.g. in CI) the same information prints without ANSI styling or spinners — the diagnostic message, span, and any help text as plain text.
 
-You can use try-catch blocks to handle exceptions and return appropriate failure results:
+Pass `-v`/`--verbose` to print the full error chain instead of a single-line cause.
 
-```csharp
-public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
-{
-    try
-    {
-        // Execute middleware logic that might throw exceptions
-        // ...
+### JSON Mode
 
-        return Task.FromResult(MiddlewareResult.Success());
-    }
-    catch (SpecificException ex)
-    {
-        // Handle specific exception
-        return Task.FromResult(MiddlewareResult.Failure($"Specific error: {ex.Message}"));
-    }
-    catch (Exception ex)
-    {
-        // Handle general exception
-        return Task.FromResult(MiddlewareResult.Failure($"Unexpected error: {ex.Message}"));
-    }
-}
+With `--output json`, a top-level failure is printed to stdout as a single JSON object instead of a miette report:
+
+```json
+{"type":"error","message":"Plugin 'gh' not found.","exit_code":2}
 ```
 
-### Logging Errors
+During a run, `--output json` also emits one JSON object per line for every pipeline event as it happens (plugin resolution, step start/log/progress/finish, halt, and the final summary) — each tagged with a `type` field, for example:
 
-Always log errors to help with debugging:
-
-```csharp
-private readonly ILogger<MyMiddleware> _logger;
-
-public MyMiddleware(ILogger<MyMiddleware> logger)
-{
-    _logger = logger;
-}
-
-public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
-{
-    try
-    {
-        // Execute middleware logic
-        // ...
-
-        return Task.FromResult(MiddlewareResult.Success());
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error executing middleware");
-        return Task.FromResult(MiddlewareResult.Failure(ex.Message));
-    }
-}
+```json
+{"type":"step_log","step":"build","level":"info","message":"Restoring packages…"}
+{"type":"step_finished","step":"build","result":{"name":"build","successful":true,"skipped":false,"duration_ms":210,"error_message":null,"warnings":[]}}
 ```
 
-### Warnings vs. Errors
+This makes `--output json` suitable for CI systems and other tooling that wants to consume the run as a structured event stream rather than parse human-readable output.
 
-Sometimes you might want to issue a warning instead of failing the pipeline:
+## Common Issues
 
-```csharp
-public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
-{
-    // Execute middleware logic
-    // ...
+### Pipeline File Not Found
 
-    if (someCondition)
-    {
-        return Task.FromResult(MiddlewareResult.Warning("This is a warning message"));
-    }
+**Symptom**: `Pipeline file '<path>' does not exist.` or `No pipeline file found in '<dir>' (looked for release.yml, ...).`
 
-    return Task.FromResult(MiddlewareResult.Success());
-}
-```
+**Fix**: Pass the correct path with `-f`/`--file`, or run `moonlit` from the directory containing `release.yml`.
 
-## Pipeline Error Handling
+### Invalid `run:` Format
 
-### ContinueOnError
+**Symptom**: `Invalid run format: <value>. Expected format: 'plugin.middleware'`
 
-By default, if a middleware returns a failure result, the pipeline execution stops. However, you can configure a step to continue on error:
+**Fix**: A step's `run:` must be exactly `pluginName.middlewareName`, split on the first `.`. See [Step Properties](./config-file.md#step-properties).
 
-```yaml
-stages:
-  mystage:
-    - name: mystep
-      run: myplugin.my-middleware
-      continueOnError: true
-      config:
-        # Step configuration
-```
+### Unknown Plugin or Middleware
 
-### Conditional Execution
+**Symptom**: `Plugin '<name>' not found.` or `Middleware with name '<name>' not found.`
 
-You can use conditions to skip steps based on the results of previous steps:
+**Fix**: Check the plugin's `name:` in `plugins:` matches the alias used before the `.` in `run:`, and that the middleware name after the `.` is one the plugin actually exports — `moonlit plugin inspect <ref>` lists a plugin's middlewares.
 
-```yaml
-stages:
-  mystage:
-    - name: firststep
-      run: myplugin.first-middleware
-      
-    - name: secondstep
-      run: myplugin.second-middleware
-      condition: $(output:firststep:success) == true
-```
+### Unsupported Plugin URL Scheme
 
-## Common Issues and Solutions
+**Symptom**: `unsupported plugin URL scheme: '<scheme>'`, with a help note listing the supported schemes.
 
-### Configuration Issues
+**Fix**: Use one of `oci://`, `file://`, `http://`, or `https://` — see [Plugin URL Schemes](./config-file.md#plugin-url-schemes).
 
-#### Missing Configuration
+### No Stages or No Plugins
 
-**Issue**: A middleware fails with an error message about missing configuration.
+**Symptom**: `No stages found in the release configuration.` or `At least one plugin configuration must be provided.`
 
-**Solution**: Check your configuration file to ensure all required configuration properties are provided:
+**Fix**: A pipeline must declare at least one stage under `stages:`, and at least one entry under `plugins:`.
 
-```yaml
-stages:
-  mystage:
-    - name: mystep
-      run: myplugin.my-middleware
-      config:
-        requiredOption: "value"  # Make sure this is provided
-```
+### Denied Capability at Run Time
 
-#### Invalid Configuration
+**Symptom**: A step logs a warning that a network host, exec program, or similar was denied, rather than failing outright with a config-time error.
 
-**Issue**: A middleware fails with an error message about invalid configuration.
+**Fix**: Grant the capability in the plugin's `permissions:` block. See [Sandboxing](../guide/concepts/sandboxing.md).
 
-**Solution**: Check the documentation for the middleware to ensure you're providing valid configuration values.
+### Plugin Failed to Load
 
-### Plugin Issues
+**Symptom**: The plugin-resolution phase reports a failure and the run stops with exit code `3` — the plugin couldn't be pulled, its content digest didn't match, authentication failed, or it failed to instantiate.
 
-#### Plugin Not Found
-
-**Issue**: Moonlit fails to load a plugin with an error message about the plugin not being found.
-
-**Solution**: Check the plugin URL in your configuration file:
-
-```yaml
-plugins:
-  - name: "myplugin"
-    url: "nuget://Package.Name/Version"  # Make sure this is correct
-```
-
-#### Plugin Version Conflict
-
-**Issue**: Moonlit fails to load a plugin with an error message about version conflicts.
-
-**Solution**: Try specifying a different version of the plugin or check for compatibility issues with other plugins.
-
-### Middleware Issues
-
-#### Middleware Not Found
-
-**Issue**: Moonlit fails to execute a step with an error message about the middleware not being found.
-
-**Solution**: Check the middleware name in your configuration file:
-
-```yaml
-stages:
-  mystage:
-    - name: mystep
-      run: myplugin.my-middleware  # Make sure this is correct
-```
-
-#### Middleware Execution Failure
-
-**Issue**: A middleware fails during execution.
-
-**Solution**: Check the error message and logs for details about the failure. Common causes include:
-
-- Invalid configuration
-- Missing dependencies
-- External service failures
-- File system permissions
-
-## Logging and Debugging
-
-### Enabling Verbose Logging
-
-You can enable verbose logging to get more detailed information about what's happening:
-
-```bash
-moonlit -f pipeline.yml --verbose
-```
-
-### Log Files
-
-Moonlit logs are written to the console by default, but you can redirect them to a file:
-
-```bash
-moonlit -f pipeline.yml > moonlit.log 2>&1
-```
-
-### Debugging Middlewares
-
-If you're developing a custom middleware, you can add debug logging to help troubleshoot issues:
-
-```csharp
-public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
-{
-    _logger.LogDebug("Starting execution of MyMiddleware");
-    _logger.LogDebug("Configuration: {@Config}", configuration);
-
-    // Execute middleware logic
-    // ...
-
-    _logger.LogDebug("Completed execution of MyMiddleware");
-    return Task.FromResult(MiddlewareResult.Success());
-}
-```
+**Fix**: Check registry credentials (`moonlit login <host>`), network access to the registry, and that the referenced tag/digest exists. `--offline` will surface a clear "no cached plugin" error instead of attempting a pull.
 
 ## Next Steps
 
-- Learn about [middleware pipelines](../guide/concepts/middlewares.md)
-- Explore the [configuration file reference](./config-file.md)
-- See the [CLI reference](./cli.md) for command-line options
+- [CLI Reference](./cli.md) for `--output`, `-v`, and the commands that can return these codes
+- [Configuration File Reference](./config-file.md) for the schema errors are validated against
+- [Sandboxing](../guide/concepts/sandboxing.md) for the permissions model behind denied-capability warnings
