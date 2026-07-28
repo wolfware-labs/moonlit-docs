@@ -4,7 +4,7 @@ layout: home
 hero:
   name: "Moonlit"
   text: "Bring light to your release process"
-  tagline: A powerful, extensible build and release automation tool for modern development workflows.
+  tagline: A Rust and WebAssembly build and release automation engine. Declare your pipeline in YAML — sandboxed WASM plugins do the rest. Source-available under the Elastic License 2.0.
   image:
     src: /logo.png
     alt: Moonlit
@@ -13,185 +13,137 @@ hero:
       text: Get Started
       link: /guide/
     - theme: alt
-      text: NuGet Package
-      link: https://www.nuget.org/packages/moonlit-cli
+      text: Install
+      link: /guide/installation
 
 features:
-  - icon: 🚀
-    title: Streamlined Releases
-    details: Automate your entire release process from code to deployment with a single YAML configuration file.
+  - icon: 🦀
+    title: Rust + WebAssembly Engine
+    details: A single native binary built in Rust. Pipelines run on a wasmtime-based host that executes sandboxed WebAssembly plugin components — no separate runtime to install.
 
-  - icon: 🧩
-    title: Plugin Ecosystem
-    details: Extend functionality with plugins for Git, GitHub, Semantic Versioning, Slack, NuGet, Docker, NPM, and many more.
+  - icon: 📝
+    title: Declarative YAML Pipelines
+    details: Define plugins, stages, and steps in a single YAML file. Steps produce namespaced outputs that later steps consume through a simple expression language.
 
-  - icon: 🔄
-    title: Pipeline Architecture
-    details: Define stages and steps in your release process with a flexible middleware pipeline system.
-
-  - icon: 🛠️
-    title: Highly Configurable
-    details: Customize every aspect of your release process with a powerful configuration system.
+  - icon: 🔒
+    title: Sandboxed Plugins
+    details: Every plugin runs sandboxed by default. Grant only what a plugin needs — network hosts, executable programs, environment variables, filesystem access — through per-plugin capability grants.
 
   - icon: 📦
-    title: NuGet Integration
-    details: Distribute and consume plugins as NuGet packages for seamless integration.
+    title: OCI Plugin Distribution
+    details: Plugins are WebAssembly components distributed over OCI registries. Pull them the same way you pull container images, from Moonlit's own registry or any OCI-compliant one.
 
-  - icon: 🔌
-    title: Easy to Extend
-    details: Create your own plugins to integrate with any tool or service in your development workflow.
+  - icon: 🧰
+    title: First-Party Plugin Catalog
+    details: Automate releases for Git, GitHub, GitLab, semantic versioning, .NET, Node.js, Docker, and Slack out of the box, or build and publish your own plugin.
+
+  - icon: ⚖️
+    title: Source-Available
+    details: Moonlit is source-available under the Elastic License 2.0 — free to use, self-host, and extend inside your own products and pipelines.
 ---
 
 ## What is Moonlit?
 
-Moonlit is a build and release automation tool designed to simplify and streamline your release pipeline. It provides a flexible, plugin-based architecture that allows you to automate complex release processes for various project types with a simple YAML configuration file. Moonlit can work with many different technologies including Docker, NPM, and more.
+Moonlit is a build and release automation engine built on Rust and WebAssembly. A single YAML file declares the plugins, stages, and steps of your release pipeline; a `wasmtime`-based host executes that pipeline, running each plugin as a sandboxed WebAssembly component.
 
-Even this docs site you are reading right now is built with Moonlit! 😮 All the nuget packages part of the Moonlit toolset, including the CLI are built with Moonlit as well! 🤯
+Because plugins are WASM components rather than native code, they can be written in any language that compiles to a WASI Preview 2 component, run the same way on every platform, and are sandboxed by default — you decide what network access, filesystem access, environment variables, and subprocesses each plugin is allowed.
 
 ## Installation
 
-```bash
-dotnet tool install --global moonlit-cli
-```
-
-To install a prerelease version:
+The quickest way to install Moonlit is with `cargo`:
 
 ```bash
-dotnet tool install --global moonlit-cli --prerelease
+cargo install moonlit-cli
 ```
+
+Prebuilt archives, a Homebrew tap, and a container image are also available — see the [installation guide](/guide/installation) for every channel.
 
 ## Quick Example
 
-This is just one example of what Moonlit can do. Moonlit can work with various project types and technologies, not just .NET projects. See the [Plugins](/plugins/) section for more examples, including Docker and NPM integrations.
+This is just one example of what Moonlit can do. See the [Plugins](/plugins/) section for the full first-party catalog.
 
 ```yaml
-name: "NuGet Package Release"  # Name of the pipeline configuration
+name: "Release Pipeline"
 
-# Define reusable variables that can be referenced throughout the pipeline
 variables:
-  projectPath: "./src/MyProject.csproj"  # Path to the .NET project file
-  nugetSource: "https://api.nuget.org/v3/index.json"  # NuGet repository URL
+  projectPath: "./src/MyProject.csproj"
 
-# Register plugins that provide middlewares for the pipeline
+# Register plugins, pulled from an OCI registry, that provide middlewares for the pipeline
 plugins:
-  # Git plugin for repository operations
   - name: "git"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.5"
+    url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
 
-  # GitHub plugin for interacting with GitHub API
   - name: "gh"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0-next.6"
+    url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
     config:
-      token: $(GITHUB_TOKEN)  # Uses environment variable for authentication
+      token: $(GITHUB_TOKEN)
 
-  # Semantic Release plugin for versioning and changelog generation
   - name: "sr"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.5"
+    url: "oci://registry.moonlitbuild.dev/wolfware/semantic-release:1.0.0"
 
-  # .NET plugin for building, packing, and publishing NuGet packages
   - name: "dotnet"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Dotnet/1.0.0-next.5"
-    config:
-      apiKey: $(NUGET_API_KEY)  # Uses environment variable for NuGet authentication
+    url: "oci://registry.moonlitbuild.dev/wolfware/dotnet:1.0.0"
 
-  # Slack plugin for sending notifications
   - name: "slack"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Slack/1.0.0"
+    url: "oci://registry.moonlitbuild.dev/wolfware/slack:1.0.0"
     config:
-      token: $(SLACK_TOKEN)  # Uses environment variable for Slack authentication
+      token: $(SLACK_TOKEN)
 
 # Define the stages of the pipeline, executed in sequence
 stages:
-  # First stage: Analyze the repository and determine the next version
   analyze:
-    # Get information about the Git repository
     - name: repo
       run: git.repo-context
 
-    # Get the latest tag from GitHub
     - name: tag
       run: git.latest-tag
       config:
-        prefix: "v"  # Only consider tags starting with "v"
+        prefix: "v"
 
-    # Get all commits since the last tag and related GH items
     - name: commits
       run: git.commits
-    - name: ghItems
-      run: gh.related-items
-      config:
-        commits: $(output:commits:details)  # Uses output from the previous step
 
-    # Calculate the next version based on semantic versioning
     - name: version
       run: sr.calculate-version
       config:
-        branch: $(output:repo:branch)  # Uses branch name from repo step
-        baseVersion: $(output:tag:name)  # Uses tag name from tag step
-        commits: $(output:commits:details)  # Uses commits from analyze stage
-        prereleaseMappings:  # Define prerelease identifiers based on branch
-          main: next
-          develop: beta
-          feature/*: alpha  # Uses wildcard pattern for feature branches
+        branch: $(output:repo:branch)
+        baseVersion: $(output:tag:name)
+        commits: $(output:commits:details)
 
-  # Second stage: Build the .NET project
   build:
     - name: build
       run: dotnet.build
       config:
-        project: $(vars:projectPath)  # References variable defined at the top
-        configuration: "Release"  # Build in Release mode
+        project: $(vars:projectPath)
+        configuration: "Release"
 
-  # Third stage: Run tests on the .NET project
-  test:
-    - name: test
-      run: dotnet.test
-      config:
-        project: $(vars:projectPath)  # References variable defined at the top
-        configuration: "Debug"  # Test in Debug mode for better diagnostics
-
-  # Fourth stage: Package and publish the NuGet package
-  publish:
-    # Create a NuGet package with the calculated version
-    - name: pack
-      run: dotnet.pack
-      config:
-        project: $(vars:projectPath)  # References variable defined at the top
-        version: $(output:version:nextVersion)  # Uses version from analyze stage
-
-    # Push the package to NuGet repository, but only for main or develop branches
-    - name: push
-      run: dotnet.push
-      condition: $(output:repo:branch) == 'main' || $(output:repo:branch) == 'develop'  # Only run on main or develop
-      haltIf: $(output:version:isPrerelease) == true && $(output:repo:branch) != 'develop'  # Stop if prerelease on non-develop branch
-      config:
-        package: $(output:pack:packagePath)  # Uses package path from pack step
-        source: $(vars:nugetSource)  # References variable defined at the top
-
-    # Generate a changelog from the commits
+  release:
     - name: changelog
       run: sr.generate-changelog
       config:
-        commits: $(output:commits:details)  # Uses commits from analyze stage
-        openAiKey: $(OPENAI_API_KEY)  # Uses OpenAI API key for AI-generated changelogs
+        commits: $(output:commits:details)
 
-    # Create a GitHub release, but only for the main branch
     - name: release
       run: gh.create-release
-      condition: $(output:repo:branch) == 'main'  # Only run on main branch
+      condition: $(output:repo:branch) == 'main'
       config:
-        name: "Release $(output:version:nextVersion)"  # Uses version in release name
-        tag: "v$(output:version:nextVersion)"  # Creates a tag with v-prefix
-        changelog: $(output:changelog:categories)  # Uses generated changelog
-        prerelease: $(output:version:isPrerelease)  # Marks as prerelease if version is prerelease
+        name: "Release $(output:version:nextVersion)"
+        tag: "v$(output:version:nextVersion)"
+        changelog: $(output:changelog:categories)
+        prerelease: $(output:version:isPrerelease)
 
-  # Final stage: Send a notification about the release
   notify:
     - name: notify-slack
       run: slack.send-notification
       config:
-        channel: "#releases"  # Slack channel to notify
-        message: ":rocket: New Release - $(output:version:nextVersion) is now available! :tada:"  # Message with version
+        channel: "#releases"
+        message: ":rocket: New release $(output:version:nextVersion) is now available!"
+```
+
+Save this as `release.yml` and run it with:
+
+```bash
+moonlit run
 ```
 
 [Learn more about Moonlit](/guide/)
