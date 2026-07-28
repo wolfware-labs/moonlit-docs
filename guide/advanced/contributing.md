@@ -1,146 +1,73 @@
-# Contributing to Moonlit
+---
+title: Contributing
+description: How to build, test, and submit changes to Moonlit
+---
 
-Thank you for your interest in contributing to Moonlit! This document provides guidelines and instructions for contributing to the project.
+# Contributing
 
-## Code of Conduct
+Thanks for your interest in improving Moonlit. This page covers the workspace layout, the local build/test loop, and the sign-off required on every commit.
 
-By participating in this project, you agree to abide by our Code of Conduct. We expect all contributors to be respectful and considerate of others.
+## License of Contributions
 
-## How to Contribute
+Moonlit is source-available under the [Elastic License 2.0](https://github.com/wolfware-labs/moonlit/blob/main/LICENSE) (ELv2) — not an OSI-approved open-source license, but free to read, self-host, and extend. Unless stated otherwise, contributions you submit are provided under the same terms. "Moonlit" is a trademark of Wolfware LLC; the license grants no rights to use it.
 
-There are many ways to contribute to Moonlit:
+## Workspace Layout
 
-1. **Reporting Bugs**: If you find a bug, please create an issue in our GitLab repository with a detailed description.
-2. **Suggesting Enhancements**: Have an idea for a new feature? Submit an issue with the enhancement tag.
-3. **Writing Documentation**: Help improve our documentation by fixing errors or adding examples.
-4. **Contributing Code**: Submit merge requests with bug fixes or new features.
-5. **Sharing Examples**: Add new recipes to the cookbook section.
+Moonlit is a Rust workspace. The directory boundaries are hard boundaries — plugin crates only depend on the SDK, never the engine directly:
+
+```
+moonlit/
+├── engine/     # moonlit-engine (lib): the wasmtime host, pipeline executor, WIT contract
+├── cli/        # moonlit-cli (bin "moonlit"): the clap command tree
+├── sdk/        # moonlit-plugin-sdk (lib): the plugin authoring SDK
+├── plugins/    # one crate per first-party plugin (git, github, gitlab, docker, …)
+└── Cargo.toml  # workspace manifest
+```
+
+- `cli` depends on `engine` and `sdk`
+- `plugins/*` depend on `sdk` only
+- `engine` has no in-workspace dependencies
+
+The toolchain is pinned in `rust-toolchain.toml`, including the `wasm32-wasip2` target that plugin crates build against.
 
 ## Getting Started
 
-### Setting Up Your Development Environment
+```bash
+git clone https://github.com/wolfware-labs/moonlit.git
+cd moonlit
+cargo build
+```
 
-1. Fork the repository on GitLab
-2. Clone your fork locally:
-   ```bash
-   git clone https://gitlab.com/your-username/cli.git moonlit
-   cd moonlit
-   ```
-3. Add the original repository as an upstream remote:
-   ```bash
-   git remote add upstream https://gitlab.com/wolfware-oss/moonlit/cli.git
-   ```
-4. Install dependencies:
-   ```bash
-   dotnet restore
-   ```
+### Build and Test
 
-### Development Workflow
+```bash
+cargo build
+cargo test
+cargo fmt --all --check
+cargo clippy --all-targets -- -D warnings
+```
 
-1. Create a new branch for your changes:
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-2. Make your changes
-3. Run tests to ensure your changes don't break existing functionality:
-   ```bash
-   dotnet test
-   ```
-4. Commit your changes with a descriptive commit message:
-   ```bash
-   git commit -m "Add feature: your feature description"
-   ```
-5. Push your branch to your fork:
-   ```bash
-   git push origin feature/your-feature-name
-   ```
-6. Create a merge request from your fork to the main repository
+Run all four before opening a pull request — CI enforces the same checks.
 
-## Merge Request Guidelines
+## Developer Certificate of Origin (DCO)
 
-When submitting a merge request, please:
+Every commit must be signed off under the [Developer Certificate of Origin 1.1](https://developercertificate.org/), certifying that you wrote the change or otherwise have the right to submit it under the project's license:
 
-1. Include a clear description of the changes
-2. Link to any related issues
-3. Update documentation if necessary
-4. Add or update tests as appropriate
-5. Follow the existing code style and conventions
-6. Ensure all tests pass
+```
+Signed-off-by: Your Name <you@example.com>
+```
 
-## Cookbook Contributions
+`git commit -s` adds this trailer automatically. Pull requests with unsigned commits are rejected by CI.
 
-We especially welcome contributions to the cookbook section. If you have a useful workflow or recipe:
+## Submitting Changes
 
-1. Create a new markdown file in the `cookbook` directory
-2. Follow the existing format of other cookbook entries
-3. Include:
-   - A clear title and description
-   - Prerequisites
-   - Step-by-step instructions
-   - Code examples
-   - Explanation of how the solution works
-4. Submit a merge request with your new recipe
-
-### Cookbook Entry Template
-
-```markdown
----
-title: Your Recipe Title
-description: A brief description of what this recipe accomplishes
----
-
-# Your Recipe Title
-
-Brief introduction explaining what this recipe does and why it's useful.
-
-## Prerequisites
-
-- List of requirements
-- Tools needed
-- Any setup required
-
-## Configuration
-
-    # Your configuration example in YAML format
-    name: example
-    version: 1.0.0
-    settings:
-      key: value
-
-## Explanation
-
-Detailed explanation of how the solution works.
+1. Fork the repository and create a branch for your change.
+2. Make your change, with tests covering new behavior.
+3. Run the build and test commands above.
+4. Commit with `git commit -s` and a clear, descriptive message.
+5. Open a pull request describing what changed and why.
 
 ## Next Steps
 
-- Suggestions for extending the recipe
-- Related recipes or documentation
-```
-
-## Documentation Style Guide
-
-When writing documentation:
-
-1. Use clear, concise language
-2. Structure content with headings and subheadings
-3. Use code blocks for examples
-4. Include explanations for complex concepts
-5. Link to related documentation when appropriate
-
-## Release Process
-
-Moonlit follows semantic versioning. The release process is managed by the core team, but contributors should be aware of the versioning conventions:
-
-- **Major version**: Breaking changes
-- **Minor version**: New features without breaking changes
-- **Patch version**: Bug fixes and minor improvements
-
-## Getting Help
-
-If you need help with contributing:
-
-- Join our community chat
-- Ask questions in GitLab issues
-- Reach out to the maintainers
-
-Thank you for contributing to Moonlit!
+- [Authoring a Plugin](./custom-plugins.md) if your contribution is a new plugin rather than a change to the engine or CLI
+- [How Moonlit Works](../concepts/how-it-works.md) for the architecture your change fits into

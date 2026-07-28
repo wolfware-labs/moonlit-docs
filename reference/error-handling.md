@@ -256,6 +256,6 @@ public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguratio
 
 ## Next Steps
 
-- Learn about [middleware pipelines](../guide/advanced/middleware.md)
+- Learn about [middleware pipelines](../guide/concepts/middlewares.md)
 - Explore the [configuration file reference](./config-file.md)
 - See the [CLI reference](./cli.md) for command-line options

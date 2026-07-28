@@ -120,11 +120,10 @@ export default withMermaid({
           ]
         },
         {
-          text: 'Advanced Usage',
+          text: 'Authoring',
           items: [
-            { text: 'Creating Custom Plugins', link: '/guide/advanced/custom-plugins' },
-            { text: 'Dependency Injection', link: '/guide/advanced/dependency-injection' },
-            { text: 'Middleware Pipeline', link: '/guide/advanced/middleware' },
+            { text: 'Authoring a Plugin', link: '/guide/advanced/custom-plugins' },
+            { text: 'Publishing a Plugin', link: '/guide/advanced/publishing-plugins' },
             { text: 'Contributing', link: '/guide/advanced/contributing' }
           ]
         }

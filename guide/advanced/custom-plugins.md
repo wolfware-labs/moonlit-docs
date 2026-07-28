@@ -1,441 +1,174 @@
 ---
-title: Creating Custom Plugins
-description: Learn how to create your own custom plugins for Moonlit
+title: Authoring a Plugin
+description: Scaffold, implement, build, and inspect a Moonlit plugin with the Rust SDK
 ---
 
-# Creating Custom Plugins
+# Authoring a Plugin
 
-This guide will walk you through the process of creating a custom plugin for Moonlit. We'll create a simple plugin that provides a middleware to generate a random number.
+Moonlit plugins are **WebAssembly components** — built for WASI Preview 2 and the component model — that export a small set of functions the engine calls into: `init`, `list-middlewares`, and `execute` (see [Plugins System](../concepts/plugins.md) for the conceptual overview). You write plugins in Rust against the `moonlit-plugin-sdk` crate, which generates all of that glue for you: you implement typed `Middleware` structs and declare them in one `moonlit_plugin!` block.
 
 ## Prerequisites
 
-Before you begin, make sure you have:
+- A Rust toolchain with the `wasm32-wasip2` target installed (`rustup target add wasm32-wasip2`)
+- The `moonlit` CLI
 
-- .NET SDK 9.0 or later installed
-- Basic knowledge of C# and .NET
-- Moonlit CLI installed
-- A code editor or IDE (Visual Studio, VS Code, etc.)
-
-## Step 1: Create a New Project
-
-First, create a new .NET Class Library project:
+## Scaffold a New Plugin
 
 ```bash
-# Create a new directory for your plugin
-mkdir MyRandomPlugin
-cd MyRandomPlugin
-
-# Create a new .NET Class Library project
-dotnet new classlib -n MyCompany.Moonlit.Plugins.Random
-cd MyCompany.Moonlit.Plugins.Random
+moonlit plugin new my-plugin
 ```
 
-## Step 2: Add Required Dependencies
-
-Add a reference to the Wolfware.Moonlit.Plugins package:
+On a TTY this prompts for a namespace (defaults to your `git config user.name`), a one-line description, and an SPDX license (`Apache-2.0`, `MIT`, or `Elastic-2.0`). All three can also be passed as flags for non-interactive use:
 
 ```bash
-dotnet add package Wolfware.Moonlit.Plugins
+moonlit plugin new my-plugin \
+  --namespace acme \
+  --description "Does things" \
+  --license Apache-2.0
 ```
 
-## Step 3: Create the Plugin Startup Class
+Pass `--sdk-path <path>` instead of a crates.io version when developing against a local checkout of the SDK.
 
-The startup class is the entry point for your plugin. Create a new file called `RandomPluginStartup.cs`:
+The scaffold creates:
 
-```csharp
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Wolfware.Moonlit.Plugins;
+```
+my-plugin/
+├── Cargo.toml           # crate-type = ["cdylib"]; moonlit-plugin-sdk dependency
+├── moonlit-plugin.toml   # publish metadata: name, namespace, description, license
+├── src/lib.rs            # a sample "greet" middleware + moonlit_plugin! block
+├── README.md
+└── .gitignore
+```
 
-namespace MyCompany.Moonlit.Plugins.Random
-{
-    public sealed class RandomPluginStartup : PluginStartup
-    {
-        protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
-        {
-            // Register services
-            services.AddSingleton<IRandomService, RandomService>();
-        }
+## Implementing a Middleware
 
-        protected override void AddMiddlewares(IServiceCollection services)
-        {
-            // Register middlewares with names
-            services.AddMiddleware<GenerateRandomNumberMiddleware>("generate");
-        }
+A middleware is a `Default` unit struct that implements the `Middleware` trait from `moonlit_plugin_sdk::prelude`:
+
+```rust
+use moonlit_plugin_sdk::prelude::*;
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct GreetConfig {
+    name: String,
+}
+
+#[derive(Default)]
+struct Greet;
+
+impl Middleware for Greet {
+    const NAME: &'static str = "greet";
+    const DESCRIPTION: &'static str = "logs and returns a greeting";
+    type Config = GreetConfig;
+
+    fn execute(&self, ctx: &Context, cfg: Self::Config) -> MiddlewareResult {
+        let who = if cfg.name.is_empty() { "world".to_string() } else { cfg.name };
+        ctx.log_info(&format!("greeting {who}"));
+        MiddlewareResult::success_with(|o| {
+            o.set("greeting", format!("hello, {who}"));
+        })
     }
 }
 ```
 
-## Step 4: Create a Service
+- `NAME` is the identifier used after the `.` in a step's `run:` reference (e.g. `myplugin.greet`).
+- `Config` is deserialized from the step's fully-substituted YAML config; it must implement `Default` so an absent config block still binds.
+- `execute` returns a `MiddlewareResult`: `success()`, `success_with(|o| …)` to set output keys, `failure(msg)`, or `.with_warning(msg)` chained onto a success.
 
-Create a service that will provide the core functionality of your plugin. Create a new file called `RandomService.cs`:
+### The `Context`
 
-```csharp
-namespace MyCompany.Moonlit.Plugins.Random
-{
-    public interface IRandomService
-    {
-        int GenerateNumber(int min, int max);
-    }
+`Context` is the capability handed to every middleware — it's the SDK's ergonomic wrapper over the plugin's host imports (§6 of the technical spec: `moonlit:host/host` and `moonlit:host/process`):
 
-    public class RandomService : IRandomService
-    {
-        private readonly System.Random _random = new System.Random();
+| Method | Purpose |
+|---|---|
+| `ctx.log_debug/info/warn/error(msg)` | structured logging routed to the CLI renderer |
+| `ctx.progress(msg)` | live sub-step progress shown under the step spinner |
+| `ctx.working_dir()` / `ctx.step_name()` | the step's working directory and name |
+| `ctx.get_config(path)` / `ctx.get_config_as::<T>(path)` | read `$()`-substituted, permission-filtered configuration by `:`-separated path |
+| `ctx.command(program)` | build a subprocess call, permission-checked against the plugin's `exec` allowlist |
+| `ctx.http()` | a small blocking HTTP client over `wasi:http` |
+| `ctx.env()` | environment variable access, permission-filtered |
+| `ctx.state::<T>()` | the plugin's shared state (see below); panics if none was declared |
+| `ctx.plugin_config::<T>()` | the typed plugin-level config; panics if none was declared |
 
-        public int GenerateNumber(int min, int max)
-        {
-            return _random.Next(min, max + 1);
-        }
+### Sharing State Across Steps
+
+A plugin keeps one component instance for the whole pipeline run, so middlewares on the same plugin can share in-memory state. Declare a `state:` type in `moonlit_plugin!` and reach it via `ctx.state::<T>()`.
+
+### The `moonlit_plugin!` Macro
+
+One `moonlit_plugin!` block per crate wires everything together — it generates the WIT `export` glue (`init`, `list-middlewares`, `execute`), config deserialization, and the plumbing for `state`/`config`:
+
+```rust
+moonlit_plugin! {
+    name: "my-plugin",
+    config: MyPluginConfig,        // optional: plugin-level config type
+    state: MySharedState,          // optional: Default-constructed shared state
+    middlewares: [Greet, AnotherMiddleware],
+}
+```
+
+### Testing Without Wasm
+
+`moonlit_plugin_sdk::testing` runs a middleware natively — no wasm build required — against a `MockHost`:
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use moonlit_plugin_sdk::testing::{run, MockHost};
+
+    #[test]
+    fn greet_greets_the_configured_name() {
+        let host = MockHost::new();
+        let ctx = Context::new(&host, "/work".to_string(), "test".to_string());
+        let result = run(&Greet, &ctx, GreetConfig { name: "moonlit".to_string() });
+        assert!(result.is_success());
     }
 }
 ```
 
-## Step 5: Create a Middleware
-
-Create a middleware that will be executed in the pipeline. Create a new file called `GenerateRandomNumberMiddleware.cs`:
-
-```csharp
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Wolfware.Moonlit.Plugins;
-
-namespace MyCompany.Moonlit.Plugins.Random
-{
-    public class GenerateRandomNumberConfig
-    {
-        public int Min { get; set; } = 1;
-        public int Max { get; set; } = 100;
-    }
-
-    public class GenerateRandomNumberMiddleware : IReleaseMiddleware
-    {
-        private readonly ILogger<GenerateRandomNumberMiddleware> _logger;
-        private readonly IRandomService _randomService;
-
-        public GenerateRandomNumberMiddleware(
-            ILogger<GenerateRandomNumberMiddleware> logger,
-            IRandomService randomService)
-        {
-            _logger = logger;
-            _randomService = randomService;
-        }
-
-        public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
-        {
-            _logger.LogInformation("Generating random number");
-
-            // Get configuration from parameter
-            var config = configuration.Get<GenerateRandomNumberConfig>();
-
-            // Generate a random number
-            var number = _randomService.GenerateNumber(config.Min, config.Max);
-
-            _logger.LogInformation($"Generated random number: {number}");
-
-            // Return success with output
-            return Task.FromResult(MiddlewareResult.Success(output =>
-            {
-                output.Add("number", number);
-            }));
-        }
-    }
-}
-```
-
-## Step 6: Configure the Project for NuGet Packaging
-
-Update your project file (`MyCompany.Moonlit.Plugins.Random.csproj`) to include NuGet package metadata:
-
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
-
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-
-    <!-- NuGet package metadata -->
-    <PackageId>MyCompany.Moonlit.Plugins.Random</PackageId>
-    <Version>1.0.0</Version>
-    <Authors>Your Name</Authors>
-    <Company>Your Company</Company>
-    <Description>A Moonlit plugin for generating random numbers</Description>
-    <PackageTags>moonlit;plugin;random</PackageTags>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Wolfware.Moonlit.Plugins" Version="1.0.0" />
-  </ItemGroup>
-
-</Project>
-```
-
-## Step 7: Build and Package the Plugin
-
-Build and package your plugin:
+## Building
 
 ```bash
-# Build the project
-dotnet build -c Release
-
-# Create a NuGet package
-dotnet pack -c Release
+moonlit plugin build --release
 ```
 
-This will create a NuGet package in the `bin/Release` directory.
+This wraps `cargo build --target wasm32-wasip2`, then verifies the output is a WASI Preview 2 **component** (not a core wasm module). The artifact lands at `target/wasm32-wasip2/release/<crate_name>.wasm` (hyphens in the crate name become underscores). Pass `--manifest-path <dir>` to build a plugin crate that isn't the current directory; omit `--release` for a faster, unoptimized debug build during iteration.
 
-## Step 8: Publish the Plugin
-
-You can publish your plugin to a NuGet repository:
+## Inspecting
 
 ```bash
-dotnet nuget push bin/Release/MyCompany.Moonlit.Plugins.Random.1.0.0.nupkg --source https://api.nuget.org/v3/index.json --api-key YOUR_API_KEY
+moonlit plugin inspect target/wasm32-wasip2/release/my_plugin.wasm
 ```
 
-Or, for local testing, you can use a local NuGet repository or reference the package directly from the file system.
+`inspect` instantiates the component with zero capability grants and prints its metadata and middlewares:
 
-## Step 9: Use the Plugin in a Moonlit Pipeline
+```
+my-plugin v0.1.0
+Does things
 
-Now you can use your plugin in a Moonlit pipeline. Create a file called `moonlit.yml`:
+┌────────────┬─────────────────────────────┐
+│ Middleware  │ Description                 │
+├────────────┼─────────────────────────────┤
+│ greet       │ logs and returns a greeting │
+└────────────┴─────────────────────────────┘
+```
+
+`inspect` also accepts a plugin reference (`oci://…`, `file://…`, `http(s)://…`) instead of a local path, so you can inspect a published plugin the same way. `--output json` prints the same data as JSON for scripting.
+
+## Using the Plugin Locally
+
+Before publishing, reference the built component directly from a pipeline for testing:
 
 ```yaml
-name: "Random Number Generator"
-
 plugins:
-  - name: "random"
-    url: "nuget://mycompany/MyCompany.Moonlit.Plugins.Random/1.0.0"
-  - name: "console"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Console/1.0.0"
-
-stages:
-  generate:
-    - name: randomNumber
-      run: random.generate
-      config:
-        min: 1
-        max: 10
-
-    - name: displayNumber
-      run: console.log
-      config:
-        message: "The random number is: $(output:randomNumber:number)"
+  - name: my-plugin
+    url: "file:///abs/path/to/my-plugin/target/wasm32-wasip2/release/my_plugin.wasm"
 ```
-
-### Plugin Reference Methods
-
-Moonlit supports multiple ways to reference plugins:
-
-1. **NuGet Packages** (as shown above):
-   ```yaml
-   plugins:
-     - name: "random"
-       url: "nuget://MyCompany.Moonlit.Plugins.Random/1.0.0"
-   ```
-
-2. **File URIs** (useful for local development and testing):
-   ```yaml
-   plugins:
-     - name: "random"
-       url: "file://D:/path/to/MyCompany.Moonlit.Plugins.Random/bin/Debug/net9.0/MyCompany.Moonlit.Plugins.Random.dll"
-   ```
-
-3. **HTTP/HTTPS URIs**:
-   ```yaml
-   plugins:
-     - name: "random"
-       url: "https://myplugins.com/MyCompany.Moonlit.Plugins.Random.dll"
-   ```
-
-:::: warning
-When using HTTP/HTTPS URIs, be aware that if the assembly has dependencies, they will not be automatically downloaded. This may cause the plugin to fail if it relies on external libraries. Future versions of Moonlit will include a manifest system to handle dependencies for remotely hosted plugins.
-::::
-
-## Step 10: Run the Pipeline
-
-Run the pipeline:
-
-```bash
-moonlit -f moonlit.yml
-```
-
-You should see output similar to:
-
-```
-🚀 Executing release pipeline: Random Number Generator
-📁 Working Directory: D:\path\to\your\project
-⚙ Configuration File: moonlit.yml
-
-[00:17:08]   ================================================================================
-[00:17:08]   Step: randomNumber
-[00:17:08]   Middleware: MyCompany.Moonlit.Plugins.Random.GenerateRandomNumberMiddleware
-[00:17:08]   Version: 1.0.0
-[00:17:08]   ================================================================================
-[00:17:08]       INFO Generating random number
-[00:17:08]       INFO Generated random number: 7
-[00:17:08]   --------------------------------------------------------------------------------
-[00:17:08]   SUCCESS - Execution time: 42 ms.
-[00:17:08]   --------------------------------------------------------------------------------
-[00:17:08]              
-[00:17:08]              
-[00:17:09]   ================================================================================
-[00:17:09]   Step: displayNumber
-[00:17:09]   Middleware: Wolfware.Moonlit.Plugins.Console.Middlewares.ConsoleLogMiddleware
-[00:17:09]   Version: 1.0.0
-[00:17:09]   ================================================================================
-[00:17:09]       INFO The random number is: 7
-[00:17:09]   --------------------------------------------------------------------------------
-[00:17:09]   SUCCESS - Execution time: 12 ms.
-[00:17:09]   --------------------------------------------------------------------------------
-```
-
-## Advanced Plugin Development
-
-### Adding Multiple Middlewares
-
-You can add multiple middlewares to your plugin:
-
-```csharp
-protected override void AddMiddlewares(IServiceCollection services)
-{
-    services.AddMiddleware<GenerateRandomNumberMiddleware>("generate");
-    services.AddMiddleware<RollDiceMiddleware>("roll-dice");
-    services.AddMiddleware<FlipCoinMiddleware>("flip-coin");
-}
-```
-
-### Handling Asynchronous Operations
-
-If your middleware needs to perform asynchronous operations, use the `async/await` pattern:
-
-```csharp
-public async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
-{
-    // Get configuration from parameter
-    var config = configuration.Get<MyConfig>();
-
-    // Perform async operation
-    var result = await _myService.DoSomethingAsync(config.SomeOption);
-
-    // Return success with output
-    return MiddlewareResult.Success(output =>
-    {
-        output.Add("result", result);
-    });
-}
-```
-
-### Error Handling
-
-Proper error handling is important in middlewares:
-
-```csharp
-public async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
-{
-    try
-    {
-        // Get configuration from parameter
-        var config = configuration.Get<MyConfig>();
-
-        // Validate configuration
-        if (config.SomeOption == null)
-        {
-            return MiddlewareResult.Failure("SomeOption is required");
-        }
-
-        // Perform operation
-        var result = await _myService.DoSomethingAsync(config.SomeOption);
-
-        // Return success with output
-        return MiddlewareResult.Success(output =>
-        {
-            output.Add("result", result);
-        });
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error executing middleware");
-        return MiddlewareResult.Failure(ex.Message);
-    }
-}
-```
-
-### Plugin Configuration
-
-You can add global configuration for your plugin:
-
-```csharp
-public class RandomPluginOptions
-{
-    public string DefaultMode { get; set; }
-    public int DefaultMin { get; set; } = 1;
-    public int DefaultMax { get; set; } = 100;
-}
-
-public sealed class RandomPluginStartup : PluginStartup
-{
-    protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
-    {
-        // Bind configuration
-        services.Configure<RandomPluginOptions>(configuration);
-
-        // Register services
-        services.AddSingleton<IRandomService, RandomService>();
-    }
-
-    protected override void AddMiddlewares(IServiceCollection services)
-    {
-        // Register middlewares
-        services.AddMiddleware<GenerateRandomNumberMiddleware>("generate");
-    }
-}
-```
-
-Then, in your middleware, you can access the global configuration:
-
-```csharp
-private readonly RandomPluginOptions _options;
-
-public GenerateRandomNumberMiddleware(
-    ILogger<GenerateRandomNumberMiddleware> logger,
-    IRandomService randomService,
-    IOptions<RandomPluginOptions> options)
-{
-    _logger = logger;
-    _randomService = randomService;
-    _options = options.Value;
-}
-
-public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
-{
-    // Get configuration from parameter
-    var config = configuration.Get<GenerateRandomNumberConfig>();
-
-    // Use default values from global configuration if not specified
-    var min = config.Min ?? _options.DefaultMin;
-    var max = config.Max ?? _options.DefaultMax;
-
-    // Generate a random number
-    var number = _randomService.GenerateNumber(min, max);
-
-    // Return success with output
-    return Task.FromResult(MiddlewareResult.Success(output =>
-    {
-        output.Add("number", number);
-    }));
-}
-```
-
-## Best Practices
-
-- **Keep it focused**: Each plugin should have a clear, focused purpose
-- **Use dependency injection**: Inject services rather than creating them directly
-- **Handle errors gracefully**: Provide clear error messages and handle exceptions properly
-- **Document your plugin**: Include XML documentation comments and README files
-- **Write tests**: Unit test your plugin to ensure it works correctly
-- **Follow semantic versioning**: Use proper versioning for your plugin releases
 
 ## Next Steps
 
-- Learn more about [plugin development](../../reference/plugin-development.md) in the reference documentation
-- Explore the [Moonlit architecture](../concepts/how-it-works.md) to understand how plugins fit into the bigger picture
-- See [examples](../../plugins/examples/nuget-release.md) of complete pipelines that use plugins
+- [Publishing a Plugin](./publishing-plugins.md) — push your component to an OCI registry so pipelines can pull it with `oci://`
+- [Plugin Development Reference](../../reference/plugin-development.md) for the full SDK surface, or the [`moonlit-plugin-sdk` crate docs](https://crates.io/crates/moonlit-plugin-sdk)
+- [Plugins System](../concepts/plugins.md) for how the engine loads and sandboxes plugins
