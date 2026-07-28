@@ -15,7 +15,7 @@ Moonlit ships as a single native binary, `moonlit`, that reads a YAML configurat
 2. **Stages**: logical groupings of steps in your release process, executed in the order they're declared
 3. **Steps**: individual actions, each invoking a **middleware** exported by a plugin, that can read the outputs of earlier steps through a small expression language
 
-Because plugins are WebAssembly components rather than native code, they run the same way on every platform and are sandboxed by default: each plugin only gets the network access, filesystem access, environment variables, and subprocess execution you explicitly grant it.
+Because plugins are WebAssembly components rather than native code, they run the same way on every platform inside a WASM sandbox: a plugin has no ambient access to the host, and the engine mediates every network, filesystem, environment variable, and subprocess call it makes on the plugin's behalf. Each plugin can declare an optional `permissions` block to scope that access down further.
 
 ## Who it's for
 

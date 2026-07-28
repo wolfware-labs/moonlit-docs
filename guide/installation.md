@@ -41,8 +41,10 @@ A container image is published as `wolfware/moonlit`, useful for running Moonlit
 
 ```bash
 docker pull wolfware/moonlit
-docker run --rm -v "$(pwd)":/workspace -w /workspace wolfware/moonlit run
+docker run --rm wolfware/moonlit version
 ```
+
+To run a pipeline in the container, mount your project directory into the container and invoke `moonlit run` from there.
 
 ## Verifying the Installation
 
