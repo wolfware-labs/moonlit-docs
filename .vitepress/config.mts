@@ -179,11 +179,11 @@ export default withMermaid({
     },
 
     socialLinks: [
-      { icon: 'gitlab', link: 'https://gitlab.com/wolfware-oss/moonlit/cli' }
+      { icon: 'github', link: 'https://github.com/wolfware-labs/moonlit' }
     ],
 
     footer: {
-      message: 'Released under the MIT License. | Made with ❤️ (and a lot of ☕) by the <a href="https://wolfware.dev" target="_blank">Wolfware</a> team',
+      message: 'Source-available under the Elastic License 2.0. | Made with ❤️ (and a lot of ☕) by the <a href="https://wolfware.dev" target="_blank">Wolfware</a> team',
       copyright: 'Copyright © Wolfware LLC'
     }
   }
