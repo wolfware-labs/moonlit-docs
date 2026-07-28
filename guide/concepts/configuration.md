@@ -1,148 +1,91 @@
 ---
 title: Configuration
-description: Learn how to configure Moonlit using YAML files and environment variables
+description: Learn how Moonlit's configuration accumulator, value substitution, and conditions work
 ---
 
 # Configuration
 
-Moonlit uses YAML configuration files to define your release pipeline. This page explains the structure of these files and how to use environment variables and output variables for dynamic configuration.
+Moonlit pipelines are YAML files. This page explains the pieces that make pipeline configuration dynamic: the **accumulator** that layers configuration from multiple sources, `$(...)` value substitution, `condition`/`haltIf` expressions, and scalar coercion. For the full property-by-property schema, see the [Configuration File Reference](../../reference/config-file.md).
 
 ## Configuration File Structure
-
-A Moonlit configuration file has the following structure:
 
 ```yaml
 name: "My Pipeline"
 
 plugins:
-  - name: "plugin1"
-    url: "nuget://nuget.org/Package.Name/Version"
+  - name: plugin1
+    url: "oci://registry.example.com/namespace/plugin1:1.0.0"
     config:
       # Plugin-specific configuration
 
 stages:
   stage1:
-    - name: "step1"
+    - name: step1
       run: "plugin1.middleware1"
       config:
         # Step-specific configuration
 ```
 
-### Top-Level Properties
+- **name** — the pipeline's name
+- **plugins** — the plugins used by the pipeline (see [Plugins System](./plugins.md))
+- **stages** — an ordered map of stage name to a list of steps (see [Stages and Steps](./stages-steps.md))
+- **variables** — a map of values you can reference throughout the pipeline
+- **arguments** — a map of values that can be overridden from the command line
 
-- **name**: The name of your pipeline
-- **plugins**: A list of plugins to use in your pipeline
-- **stages**: A dictionary of stages, each containing a list of steps
-- **variables**: A dictionary of variables that can be used throughout the pipeline
-- **arguments**: A dictionary of arguments that can be used throughout the pipeline
+## The Accumulator: Configuration Layering
 
-## Plugin Configuration
+Moonlit builds configuration as an ordered stack of layers, resolved in this order, where **later layers win**:
 
-Each plugin entry in the `plugins` section has the following properties:
+1. **Base layer** — environment variables prefixed `MOONLIT_` (prefix stripped), plus a `.env` file in the working directory.
+2. **Release layer** — `vars:<name>` and `args:<name>` from the YAML's `variables`/`arguments` sections. CLI `--arg key=value` entries override the YAML `arguments`.
+3. **Plugin layer** (per plugin, at load time) — the plugin's `config:` block, `$(...)`-substituted against layers 1–2.
+4. **Step layers** (during the run) — each step's `config:`, substituted against everything accumulated so far.
+5. **Output layers** — after each step, its outputs are flattened into the accumulator under `output:<stepName>:<key>`. Nested structures flatten with `:` and numeric indices for arrays, e.g. `output:commits:details:0:sha`.
 
-```yaml
-plugins:
-  - name: "git"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.5"
-    config:
-      # Plugin-specific configuration
-```
+This layering is why a later step can read an earlier step's output, and why plugin-level config can be overridden per step.
 
-- **name**: A unique identifier for the plugin
-- **url**: The NuGet package URL
-- **config** (optional): Global configuration for the plugin
+## `$(...)` Value Substitution
 
-Note: The `url` uses the format `nuget://{RepositoryKey}/{PackageName}/{Version}`. The `RepositoryKey` must match a package source name configured in your NuGet `nuget.config` (e.g., `nuget.org` or a custom source like `mycompany`). This allows you to pull plugins from different NuGet feeds.
+Anywhere in your configuration, `$(...)` resolves a path against the accumulator described above. The inner text can't contain a `)`.
 
-## Stage Configuration
+There are two substitution modes:
 
-Each stage is a named entry in the `stages` section:
+- **Whole-string** — when the entire value is a single `$(...)` expression (e.g. `commits: $(output:commits:details)`), it's replaced by the *resolved value itself*, which may be a string, a map, or a list. This is how structured data — not just strings — flows between steps. A missing key resolves to `null`.
+- **Embedded** — when `$(...)` appears inside a larger string (e.g. `"v$(output:version:nextVersion)"`), each occurrence is replaced by the value's string form. A missing key is replaced with an empty string.
 
-```yaml
-stages:
-  build:
-    # Steps for the build stage
-
-  publish:
-    # Steps for the publish stage
-```
-
-## Step Configuration
-
-Each step within a stage has the following properties:
-
-```yaml
-- name: "build"
-  run: "dotnet.build"
-  condition: "$(output:repo:branch) == 'main'"
-  continueOnError: false
-  config:
-    project: "./src/MyProject.csproj"
-```
-
-- **name**: A unique identifier for the step
-- **run**: The middleware to execute, in the format `pluginName.middlewareName`
-- **condition** (optional): A condition that must be true for the step to execute (corresponds to `ExecuteOn` in the API)
-- **haltIf** (optional): A condition that, when true, will halt the pipeline execution after this step completes
-- **continueOnError** (optional): Whether to continue execution if the step fails
-- **config** (optional): Configuration settings for the middleware
-
-## Variable Substitution
-
-Moonlit supports variable substitution in your configuration file using the following syntax:
-
-### Environment Variables
-
-You can use environment variables in your configuration:
-
-```yaml
-config:
-  token: $(GITHUB_TOKEN)
-```
-
-When Moonlit runs, it will replace `$(GITHUB_TOKEN)` with the value of the `GITHUB_TOKEN` environment variable.
-
-### Output Variables
-
-You can use output from previous steps:
-
-```yaml
-config:
-  branch: $(output:repo:branch)
-  version: $(output:version:nextVersion)
-```
-
-The syntax is `$(output:stepName:propertyName)`, where:
-- `stepName` is the name of a previous step
-- `propertyName` is the name of an output property from that step
+An empty or whitespace-only input resolves to `null`; a string with no `$(...)` at all is returned unchanged.
 
 ### Default Values
 
-You can provide default values for variables:
+`$(NAME:default)` provides a fallback: Moonlit first tries to resolve the whole inner text as a path (so `$(output:tag:name)` still resolves `output:tag:name` rather than treating `name` as a default). Only if that fails does it split on the *last* `:`, treat the left side as the path, and use the right side as a literal default:
 
 ```yaml
 config:
   configuration: $(BUILD_CONFIGURATION:Release)
 ```
 
-If the `BUILD_CONFIGURATION` environment variable is not set, Moonlit will use `Release` as the default value.
+If `BUILD_CONFIGURATION` isn't set, this resolves to `Release`.
+
+### Common Examples
+
+```yaml
+config:
+  token: $(GITHUB_TOKEN)                    # environment variable
+  branch: $(output:repo:branch)             # output from an earlier step
+  version: $(vars:versionPrefix)$(output:version:nextVersion)  # embedded, mixed sources
+```
 
 ## Variables and Arguments
 
-Moonlit supports two special top-level sections for sharing data across your pipeline:
-
 ### Variables
 
-The `variables` section defines a dictionary of values that can be used throughout your pipeline:
+`variables` defines values you can reference throughout the pipeline via `$(vars:name)`:
 
 ```yaml
 variables:
   projectName: "MyProject"
   buildConfiguration: "Release"
-  version: "1.0.0"
 ```
-
-You can reference these variables in your configuration using the `$(vars:variableName)` syntax:
 
 ```yaml
 config:
@@ -152,7 +95,7 @@ config:
 
 ### Arguments
 
-The `arguments` section defines a dictionary of values that can be overridden by command-line arguments:
+`arguments` defines values that can be overridden from the command line, referenced via `$(args:name)`:
 
 ```yaml
 arguments:
@@ -160,64 +103,61 @@ arguments:
   skipTests: false
 ```
 
-You can reference these arguments in your configuration using the `$(args:argumentName)` syntax:
-
 ```yaml
 config:
   environment: $(args:environment)
-  runTests: $(args:skipTests) == false
 ```
 
-Command-line arguments take precedence over arguments defined in the configuration file.
+Command-line `--arg key=value` entries take precedence over the values declared in `arguments`.
 
-## Configuration Inheritance
+## Conditions (`condition` and `haltIf`)
 
-Configuration values can be defined at multiple levels:
+Steps can carry a `condition` (skip the step when false) and a `haltIf` (cleanly stop the pipeline after the step when true). Both are expressions evaluated with an embedded expression engine, exposing a single variable, `output`, built from the accumulated `output:` section:
 
-1. **Plugin-level configuration**: Defined in the `plugins` section
-2. **Step-level configuration**: Defined in the `config` property of a step
-3. **Variables**: Defined in the `variables` section
-4. **Arguments**: Defined in the `arguments` section, can be overridden by command-line arguments
+```yaml
+condition: $(output:repo:branch) == 'main'
+haltIf: "!output.version.hasNewVersion"
+```
 
-The precedence order (from highest to lowest) is:
-1. Command-line arguments
-2. Step-level configuration
-3. Plugin-level configuration
-4. Variables defined in the configuration file
+A few things to know about how these are evaluated:
+
+- Supported operators: `==`, `!=`, `>`, `<`, `>=`, `<=`, `&&`, `||`, `!`, parentheses, string literals (single or double quotes), and numeric literals.
+- Both dot-notation (`output.version.hasNewVersion`) and `$(...)` substitution (`$(output:version:hasNewVersion)`) work — `$(...)` substitution runs over the condition string *before* it's evaluated, and identifier resolution is case-insensitive.
+- Anything other than a boolean `true` result is treated as `false`.
+- If a `condition` fails to evaluate, Moonlit logs a warning and treats it as `false` (the step is skipped) — evaluation errors don't abort the pipeline. A `haltIf` that fails to evaluate, by contrast, **fails the step** with a diagnostic: a broken halt guard silently continuing would be more dangerous than stopping.
+
+## Scalar Coercion
+
+Configuration values are parsed as raw strings and only coerced to a typed value when a middleware binds them, or when building a condition's `output` scope. The coercion order is fixed: `bool` (`true`/`false`, case-insensitive) → integer → floating point → RFC3339/ISO datetime → fallback to `string`.
 
 ## Example: Complete Configuration
 
-Here's an example of a complete configuration file:
-
 ```yaml
-name: "NuGet Package Release"
+name: "Package Release"
 
 variables:
   projectPath: "./src/MyProject.csproj"
-  nugetSource: "https://api.nuget.org/v3/index.json"
   versionPrefix: "v"
 
 arguments:
   configuration: "Release"
   skipPush: false
-  prerelease: false
 
 plugins:
-  - name: "git"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.5"
-  - name: "gh"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0-next.6"
+  - name: git
+    url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
+  - name: gh
+    url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
     config:
       token: $(GITHUB_TOKEN)
-  - name: "sr"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.5"
-    config:
-      openAi:
-        apiKey: $(OPENAI_API_KEY)
-  - name: "dotnet"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Dotnet/1.0.0-next.5"
-    config:
-      nugetApiKey: $(NUGET_API_KEY)
+    permissions:
+      network: ["api.github.com"]
+  - name: sr
+    url: "oci://registry.moonlitbuild.dev/wolfware/semantic-release:1.0.0"
+  - name: dotnet
+    url: "oci://registry.moonlitbuild.dev/wolfware/dotnet:1.0.0"
+    permissions:
+      exec: ["dotnet"]
 
 stages:
   analyze:
@@ -240,9 +180,6 @@ stages:
       config:
         branch: $(output:repo:branch)
         baseVersion: $(output:tag:name)
-        prereleaseMappings:
-          main: next
-          develop: beta
     - name: changelog
       run: sr.generate-changelog
 
@@ -260,14 +197,9 @@ stages:
         version: $(output:version:nextFullVersion)
 
   release:
-    - name: push
-      run: dotnet.push
-      condition: $(args:skipPush) == false && ($(args:prerelease) == true || $(output:version:isPrerelease) == false)
-      config:
-        package: $(output:pack:packagePath)
-        source: $(vars:nugetSource)
     - name: createRelease
       run: gh.create-release
+      condition: $(args:skipPush) == false
       config:
         name: "Release $(output:version:nextVersion)"
         tag: "$(vars:versionPrefix)$(output:version:nextVersion)"
@@ -277,26 +209,16 @@ stages:
 
 ## Using the Configuration File
 
-You can specify the configuration file to use with the `-f` or `--file` option:
+By default, `moonlit run` looks for `release.yml` in the current directory. Point it at a different file with `-f`:
 
 ```bash
-moonlit -f ./path/to/moonlit.yml
+moonlit run -f ./path/to/release.yml
 ```
 
-If you don't specify a file, Moonlit will look for a file named `moonlit.yml` in the current directory.
-
-## Working Directory
-
-You can specify the working directory with the `-d` or `--working-directory` option:
-
-```bash
-moonlit -f ./path/to/moonlit.yml -d ./path/to/working/directory
-```
-
-The working directory is used as the base directory for relative paths in your configuration.
+See the [CLI Reference](../../reference/cli.md) for the full set of command-line options, including the working-directory flag.
 
 ## Next Steps
 
 - Explore the [CLI Reference](../../reference/cli.md) for command-line options
 - Learn about [creating custom plugins](../advanced/custom-plugins.md)
-- See the [reference documentation](../../reference/config-file.md) for all configuration options
+- See the [Configuration File Reference](../../reference/config-file.md) for all configuration options

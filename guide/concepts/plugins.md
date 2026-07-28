@@ -1,104 +1,62 @@
 ---
 title: Plugins System
-description: Learn how Moonlit's plugin system works and how plugins extend functionality
+description: Learn how Moonlit's WebAssembly plugin system works and how plugins extend functionality
 ---
 
 # Plugins System
 
-Moonlit's plugin system is one of its core features, allowing you to extend the tool's functionality through modular components. This page explains how the plugin system works and how plugins are used in Moonlit.
+Moonlit's plugin system is one of its core features, allowing you to extend the tool's functionality through modular components. This page explains what plugins are, how they're loaded, and how the sandbox that runs them works.
 
-## What are Plugins?
+## What Are Plugins?
 
-In Moonlit, plugins are NuGet packages that provide additional functionality to your release pipeline. Each plugin can provide:
+A Moonlit plugin is a **WebAssembly component** — built for WASI Preview 2 and the component model — that implements the `moonlit:plugin` world. A plugin component exports:
 
-- **Middlewares**: Components that execute specific tasks in your pipeline
-- **Services**: Reusable functionality that can be shared between middlewares
-- **Configuration**: Settings that control how the plugin behaves
+- **`init`** — called once after instantiation with the plugin's global `config` block; returns the plugin's name, version, and description, or an error that aborts the pipeline with a plugin-load diagnostic.
+- **`list-middlewares`** — returns the middlewares the plugin provides, used both for discovery (`moonlit plugin inspect`) and to validate every `run:` reference in your pipeline before execution starts.
+- **`execute`** — runs one named middleware against a step's fully-substituted configuration and returns its result: success/failure, warnings, and output values.
 
-## Plugin Structure
+Plugins don't call the host directly for things like the network or the filesystem — they import a small set of host-provided capabilities (structured logging, reading accumulated configuration, progress reporting, a permission-gated subprocess API) plus the standard `wasi:http`, `wasi:filesystem`, and `wasi:cli` interfaces, all mediated by the engine.
 
-A Moonlit plugin typically consists of:
+## Plugin URL Schemes
 
-1. **Startup Class**: Implements `IPluginStartup` or inherits from `PluginStartup`
-2. **Middleware Classes**: Implement specific functionality for pipeline steps
-3. **Service Classes**: Provide shared functionality
-4. **Configuration Classes**: Define the configuration options for the plugin
+A plugin is referenced by URL, and the scheme determines how it's resolved:
 
-### Startup Class
+| Scheme | Meaning | Resolution |
+|---|---|---|
+| `oci://<registry-host>/<namespace>/<name>:<tag>` | OCI artifact — the default way to distribute plugins | Pulled from an OCI registry and cached locally by digest |
+| `file:///abs/path/plugin.wasm` | A local component file | Loaded directly from disk — useful for plugin development |
+| `http(s)://…/plugin.wasm` | A remote component file | Downloaded and cached by URL hash |
 
-The startup class is the entry point for a plugin. It must implement the `IPluginStartup` interface or inherit from the `PluginStartup` class. This class is responsible for:
-
-- Registering middlewares
-- Registering services
-- Configuring the plugin
-
-Here's a simplified example of a plugin startup class:
-
-```csharp
-public sealed class GitPluginStartup : PluginStartup
-{
-    protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
-    {
-        // Register services
-        services.AddSingleton<IGitService, GitService>();
-    }
-
-    protected override void AddMiddlewares(IServiceCollection services)
-    {
-        // Register middlewares with names
-        services.AddMiddleware<RepoContextMiddleware>("repo-context");
-    }
-}
-```
+Package-manager-style references (as used by older, non-WASM plugin ecosystems) are not supported — Moonlit plugins ship as WASM components, so any unsupported scheme fails fast with a hint to switch to `oci://`.
 
 ## Plugin Registration
 
-Plugins are registered in your Moonlit configuration file under the `plugins` section:
+Plugins are registered in your pipeline configuration under the `plugins` section:
 
 ```yaml
 plugins:
-  - name: "git"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.5"
-  - name: "gh"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0-next.6"
+  - name: git
+    url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
+  - name: gh
+    url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
     config:
       token: $(GITHUB_TOKEN)
 ```
 
-Each plugin entry includes:
+Each plugin entry has:
 
-- **name**: A unique identifier for the plugin
-- **url**: The NuGet package URL
-- **config** (optional): Configuration settings for the plugin
+- **name** — the alias used to reference this plugin's middlewares in `run:` (see below)
+- **url** — where to resolve the plugin from, using one of the schemes above
+- **config** (optional) — plugin-level configuration, applied once at load time
+- **permissions** (optional) — the plugin's sandbox grant-list, described below
 
-## Plugin Loading Process
+## Plugin Loading and Lifecycle
 
-When Moonlit runs, it follows these steps to load plugins:
-
-1. **Parse Plugin Definitions**: Read the plugin entries from the configuration file
-2. **Resolve NuGet Packages**: Download and extract the specified NuGet packages
-3. **Load Assemblies**: Load the plugin assemblies into the application domain
-4. **Find Startup Classes**: Locate classes that implement `IPluginStartup`
-5. **Initialize Plugins**: Call the startup methods to register services and middlewares
-6. **Configure Plugins**: Apply the configuration from the YAML file
-
-## Official Plugins
-
-Moonlit comes with several official plugins:
-
-- **Wolfware.Plugins.Git**: Git repository operations
-- **Wolfware.Plugins.GitHub**: GitHub API integration
-- **Wolfware.Plugins.SemanticRelease**: Semantic versioning and changelog generation
-- **Wolfware.Plugins.Slack**: Slack notifications
-- **Wolfware.Plugins.Dotnet**: .NET project operations
-- **Wolfware.Plugins.Docker**: Docker image building and publishing
-- **Wolfware.Plugins.NodeJs**: Node.js and NPM operations, including running scripts, building projects, and package management
-
-Each plugin provides specific middlewares that you can use in your pipeline steps.
+When a pipeline starts, the engine loads every plugin listed in `plugins` **in parallel**: resolve the URL (pulling from cache or the network as needed), instantiate the component in the `wasmtime` host, and call its `init` export with the plugin's `config` block. The first plugin to fail aborts loading with a plugin diagnostic. Each plugin keeps **one instance for the whole pipeline run**, so middlewares on the same plugin can share in-memory state across steps — see [How Moonlit Works](./how-it-works.md) for the full execution model.
 
 ## Using Plugin Middlewares
 
-Once a plugin is loaded, you can use its middlewares in your pipeline steps:
+Once a plugin is loaded, you invoke its middlewares from pipeline steps:
 
 ```yaml
 stages:
@@ -109,39 +67,37 @@ stages:
       run: git.latest-tag
 ```
 
-The `run` property uses the format `pluginName.middlewareName` to specify which middleware to execute.
+The `run` property uses the format `pluginName.middlewareName` — split on the *first* `.` — to specify which middleware to execute. An unknown plugin or middleware name is caught before the pipeline runs.
 
-## Plugin Configuration
+## Plugin Sandbox and Permissions
 
-Plugins can be configured at two levels:
-
-1. **Global Configuration**: Applied to the entire plugin
-2. **Step Configuration**: Applied to a specific step
-
-### Global Configuration
-
-Global configuration is specified in the plugin definition:
+Every plugin runs sandboxed and is **denied by default**. A plugin's optional `permissions` block is a **grant-list**, not a set of overrides: if you omit it, the plugin gets no network access, no subprocess execution, no environment variables, and no filesystem access. If you include it, only the keys you name are granted — any key you leave out stays denied.
 
 ```yaml
 plugins:
-  - name: "gh"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0"
-    config:
-      token: $(GITHUB_TOKEN)
+  - name: gh
+    url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
+    permissions:
+      network: ["api.github.com"]   # allowed hosts for outbound HTTP
+      exec: []                      # allowed programs for subprocess execution
+      env: ["GITHUB_*"]             # env var glob patterns readable by the plugin
+      filesystem: read-write        # none | read-only | read-write of the working directory
 ```
 
-### Step Configuration
+`filesystem` defaults to `none` when the block is present but the key is omitted. If a plugin is denied a capability it tries to use — an ungranted network host or program, for example — the run output surfaces a warning naming the blocked target and the `permissions` key that would allow it.
 
-Step configuration is specified in the step definition:
+## Plugin Configuration
 
-```yaml
-stages:
-  analyze:
-    - name: tag
-      run: gh.latest-tag
-      config:
-        prefix: "v"
-```
+Plugin-related configuration exists at two levels:
+
+1. **Global configuration** — the `config` block on the plugin entry, applied once when the plugin loads.
+2. **Step configuration** — the `config` block on a step, applied to that one middleware call.
+
+Both are `$(...)`-substituted against the configuration accumulated so far; see [Configuration](./configuration.md) for the full layering model.
+
+## Official Plugins
+
+Moonlit ships a set of first-party plugins covering common release tasks — Git, GitHub, GitLab, semantic versioning, .NET, Node.js, Docker, and Slack, among others. See the [Plugins Overview](../../plugins/) for the full list and per-plugin documentation.
 
 ## Next Steps
 

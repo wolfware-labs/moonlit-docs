@@ -5,15 +5,15 @@ description: Learn how Moonlit organizes pipeline execution with stages and step
 
 # Stages and Steps
 
-Moonlit organizes your release pipeline into stages and steps, providing a structured way to define and execute your automation tasks. This page explains how stages and steps work in Moonlit.
+Moonlit organizes your release pipeline into stages and steps, providing a structured way to define and execute your automation tasks. This page explains how stages and steps work.
 
 ## Stages
 
-Stages are logical groupings of steps in your release pipeline. They help you organize your pipeline into distinct phases, such as build, test, publish, and deploy.
+Stages are named groupings of steps in your release pipeline. They let you organize a pipeline into phases — build, test, publish — and give you a way to run a subset of the pipeline by name.
 
 ### Defining Stages
 
-Stages are defined in your Moonlit configuration file under the `stages` section:
+Stages are defined under the `stages` section as an ordered map of stage name to a list of steps:
 
 ```yaml
 stages:
@@ -27,31 +27,23 @@ stages:
     # Steps for the publish stage
 ```
 
-Each stage has a unique name and contains a list of steps to execute.
-
 ### Stage Execution
 
-By default, Moonlit executes all stages in the order they are defined in your configuration file. However, you can specify which stages to run using the `-s` or `--stages` command-line option:
+At run time, the engine **flattens all stages, in declaration order, into a single linear list of steps** and executes them one after another. Stage names don't create parallel branches; they exist for organization and for the `-s`/`--stages` filter:
 
 ```bash
-moonlit -f moonlit.yml -s build,test
+moonlit run -s build,test
 ```
 
-This command will only execute the `build` and `test` stages, skipping any other stages defined in the configuration.
+This runs only the steps under the `build` and `test` stages, skipping any others. `-s` accepts both repeated flags and a comma-separated list.
 
-### Stage Dependencies
-
-Stages are executed in the order they are defined in your configuration file. There is an implicit dependency between stages, where each stage depends on the successful completion of the previous stage.
-
-If a step in a stage fails, Moonlit will stop the execution of the pipeline by default, unless you configure the step to continue on error.
+Because stages flatten into one list, there's an implicit dependency on declaration order: a stage's steps only run after every step declared before it has completed. If a step fails, the pipeline stops by default, unless that step sets `continueOnError`.
 
 ## Steps
 
-Steps are individual tasks within a stage. Each step executes a specific middleware provided by a plugin.
+Steps are the individual tasks within a stage. Each step invokes one middleware exported by a plugin.
 
 ### Defining Steps
-
-Steps are defined within a stage:
 
 ```yaml
 stages:
@@ -66,22 +58,30 @@ stages:
 
 Each step has:
 
-- **name**: A unique identifier for the step
-- **run**: The middleware to execute, in the format `pluginName.middlewareName`
-- **config** (optional): Configuration settings for the middleware
+- **name** — a unique identifier for the step; also the key under which its outputs are exposed (`output:<name>:<key>`)
+- **run** — the middleware to execute, in the format `pluginName.middlewareName` (split on the first `.`); a malformed value fails with `Invalid run format: <value>. Expected format: 'plugin.middleware'`
+- **condition** (optional) — an expression; the step is skipped when it evaluates to false
+- **haltIf** (optional) — an expression; the pipeline stops cleanly after this step when it evaluates to true
+- **continueOnError** (optional, default `false`) — whether to continue the pipeline if this step fails
+- **config** (optional) — configuration passed to the middleware; scalars stay as strings until the middleware binds them
 
 ### Step Execution
 
-Steps within a stage are executed sequentially in the order they are defined. Each step:
+For each step, in order, the engine:
 
-1. Receives the pipeline context
-2. Executes its middleware
-3. Updates the context with its results
-4. Passes the context to the next step
+1. Checks for cancellation
+2. Reports progress
+3. Evaluates `condition`, skipping the step if it's falsy
+4. Merges the step's `config` over the accumulated configuration, applying `$(...)` substitution
+5. Calls the plugin's middleware
+6. Records the result and logs any warnings
+7. Stops the pipeline on failure, unless `continueOnError` is set
+8. Appends the step's outputs under `output:<name>:<key>`
+9. Evaluates `haltIf`, stopping the pipeline cleanly if it's truthy
 
 ### Step Output
 
-Steps can produce output that can be used by later steps. This output is stored in the pipeline context and can be accessed using the `$(output:stepName:propertyName)` syntax:
+A step's outputs are added to the pipeline's accumulated configuration and can be read by later steps with the `$(output:stepName:propertyName)` syntax:
 
 ```yaml
 stages:
@@ -95,26 +95,11 @@ stages:
         branch: $(output:repo:branch)
 ```
 
-In this example, the `version` step uses the `branch` output from the `repo` step.
-
-### Step Configuration
-
-Steps can be configured using the `config` property:
-
-```yaml
-- name: build
-  run: dotnet.build
-  config:
-    project: "./src/MyProject.csproj"
-    configuration: "Release"
-    verbosity: "minimal"
-```
-
-The available configuration options depend on the middleware being executed. Each middleware defines its own configuration schema.
+Here, the `version` step reads the `branch` output produced by the `repo` step. See [Configuration](./configuration.md) for the full substitution and layering model.
 
 ### Conditional Steps
 
-You can make steps conditional using the `condition` property (corresponds to `ExecuteOn` in the API):
+Use `condition` to make a step's execution depend on an expression:
 
 ```yaml
 - name: deployToProduction
@@ -124,11 +109,11 @@ You can make steps conditional using the `condition` property (corresponds to `E
     environment: "production"
 ```
 
-In this example, the `deployToProduction` step will only execute if the current branch is `main`.
+`deployToProduction` only runs when the current branch is `main`. Conditions have access to a small expression language over accumulated outputs — see [Configuration](./configuration.md) for the syntax.
 
 ### Stopping Pipeline Execution
 
-You can conditionally stop the pipeline execution after a step using the `haltIf` property:
+Use `haltIf` to stop the pipeline cleanly after a step completes, without treating it as a failure:
 
 ```yaml
 - name: checkVersion
@@ -138,11 +123,11 @@ You can conditionally stop the pipeline execution after a step using the `haltIf
     version: $(output:version:nextVersion)
 ```
 
-In this example, the pipeline will halt after the `checkVersion` step if the version is a prerelease.
+Here, the pipeline halts after `checkVersion` if the version is a prerelease. A halted pipeline is reported as successful.
 
 ### Error Handling
 
-By default, if a step fails, Moonlit will stop the execution of the pipeline. However, you can configure a step to continue on error using the `continueOnError` property:
+By default, a failing step stops the pipeline. Set `continueOnError: true` to log the failure and move on instead:
 
 ```yaml
 - name: notify
@@ -153,36 +138,46 @@ By default, if a step fails, Moonlit will stop the execution of the pipeline. Ho
     message: "Build completed"
 ```
 
-In this example, if the `notify` step fails, Moonlit will log the error but continue with the next step or stage.
+If `notify` fails here, Moonlit logs the error and continues with the next step.
 
 ## Example: Complete Pipeline
 
-Here's an example of a complete pipeline with multiple stages and steps:
-
 ```yaml
-name: "NuGet Package Release"
+name: "Package Release"
 
 plugins:
-  - name: "git"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0"
-  - name: "gh"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0"
-  - name: "sr"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0"
-  - name: "dotnet"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Dotnet/1.0.0"
+  - name: git
+    url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
+  - name: gh
+    url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
+    permissions:
+      network: ["api.github.com"]
+  - name: sr
+    url: "oci://registry.moonlitbuild.dev/wolfware/semantic-release:1.0.0"
+  - name: dotnet
+    url: "oci://registry.moonlitbuild.dev/wolfware/dotnet:1.0.0"
+    permissions:
+      exec: ["dotnet"]
 
 stages:
   analyze:
     - name: repo
       run: git.repo-context
     - name: tag
-      run: gh.latest-tag
+      run: git.latest-tag
+    - name: commits
+      run: git.commits
+    - name: conventionalCommits
+      run: sr.analyze
+      config:
+        commits: $(output:commits:details)
     - name: version
       run: sr.calculate-version
       config:
         branch: $(output:repo:branch)
         baseVersion: $(output:tag:name)
+    - name: changelog
+      run: sr.generate-changelog
 
   build:
     - name: build
@@ -198,12 +193,13 @@ stages:
         project: "./src/MyProject.csproj"
         version: $(output:version:nextVersion)
 
-    - name: push
-      run: dotnet.push
+    - name: createRelease
+      run: gh.create-release
       config:
-        package: $(output:pack:packagePath)
-        source: "https://api.nuget.org/v3/index.json"
-        apiKey: $(NUGET_API_KEY)
+        name: "Release $(output:version:nextVersion)"
+        tag: "v$(output:version:nextVersion)"
+        changelog: $(output:changelog:categories)
+        prerelease: $(output:version:isPrerelease)
 ```
 
 ## Next Steps

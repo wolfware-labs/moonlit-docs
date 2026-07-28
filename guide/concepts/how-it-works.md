@@ -1,121 +1,65 @@
 ---
 title: How Moonlit Works
-description: Understand the architecture and core concepts of Moonlit
+description: Understand how Moonlit's Rust engine and wasmtime host execute a release pipeline
 ---
 
 # How Moonlit Works
 
-This page explains the architecture and core concepts of Moonlit, helping you understand how the tool processes your configuration and executes your pipeline.
+This page explains the architecture Moonlit uses to turn a YAML pipeline definition into a running release: the `moonlit` CLI, the `moonlit-engine` library it calls into, and the `wasmtime`-based host that runs each plugin as a sandboxed WebAssembly component.
 
 ## Architecture Overview
 
-Moonlit follows a plugin-based architecture with a middleware pipeline pattern. Here's a high-level overview of how Moonlit works:
-
 ```mermaid
 flowchart TD
-    A[Configuration Parser] --> B[Plugin Loader]
-    B --> C[Pipeline Executor]
-    C --> D[Stage 1]
-    D --> E[Stage 2]
-
-    subgraph D[Stage 1]
-        D1[Step 1] --> D2[Step 2] --> D3[...]
-    end
-
-    subgraph E[Stage 2]
-        E1[Step 1] --> E2[Step 2] --> E3[...]
-    end
+    A[moonlit CLI] --> B[moonlit-engine: parse and validate YAML]
+    B --> C[Resolve and instantiate plugins in parallel]
+    C --> D[wasmtime host: one Store + instance per plugin]
+    D --> E[Pipeline executor: flattened step list]
+    E --> F[Step 1: plugin.middleware]
+    F --> G[Step 2: plugin.middleware]
+    G --> H[...]
 ```
 
 ## Core Components
 
-### Configuration Parser
+### CLI (`moonlit-cli`)
 
-The Configuration Parser reads your YAML file and converts it into a structured object model that Moonlit can process. It handles:
+The `moonlit` binary is a thin UX layer over the engine: it parses command-line arguments, renders progress (spinners, download bars, a live log region per step) and the final execution summary, and maps engine errors to exit codes. It calls into `moonlit-engine` as a library — the CLI itself has no pipeline logic.
 
-- Validating the YAML structure
-- Resolving environment variables
-- Parsing plugin configurations
-- Organizing stages and steps
+### Engine (`moonlit-engine`)
 
-### Plugin Loader
+The engine does the real work, in a few cooperating modules:
 
-The Plugin Loader is responsible for:
+- **Config parser** — reads the YAML pipeline file into a structured model, validating its shape and cleaning it up (trimming names, dropping null entries).
+- **Expression/condition engine** — resolves `$(...)` value substitution and evaluates `condition`/`haltIf` expressions (see [Configuration](./configuration.md)).
+- **Plugin resolvers** — one per URL scheme (`oci`, `file`, `http`/`https`) that turn a plugin reference into local component bytes.
+- **Pipeline executor** — walks the flattened list of steps, calling into plugins through the WASM host and tracking results.
 
-- Downloading and loading plugins from NuGet
-- Initializing plugin startup classes
-- Registering middleware components
-- Setting up dependency injection
+### WASM host
 
-Each plugin must implement the `IPluginStartup` interface or inherit from the `PluginStartup` class to be properly loaded.
+Plugins are WebAssembly components targeting WASI Preview 2 and the `moonlit:plugin` component-model world. The engine hosts them with `wasmtime`: each plugin gets its own `Store` and component instance, and the host implements the capabilities plugins import — structured logging, reading accumulated configuration, progress reporting, and a permission-gated subprocess API — alongside the standard `wasi:http`, `wasi:filesystem`, and `wasi:cli` interfaces. Because plugins run inside this sandbox rather than as native code, the engine mediates every capability a plugin uses; see [Plugins System](./plugins.md) for how that access is granted.
 
-### Pipeline Executor
+## Execution Model
 
-The Pipeline Executor manages the execution of your pipeline:
+Running a pipeline follows the same sequence regardless of what plugins it uses:
 
-- It organizes steps into stages
-- It executes stages in the order defined in your configuration
-- It passes the shared context between steps
-- It handles errors and provides logging
+1. **Parse** — the CLI reads the YAML file and the engine turns it into a pipeline configuration.
+2. **Resolve plugins** — the engine resolves and instantiates every plugin listed in `plugins` **in parallel**: pull from the local content-addressed cache or an OCI registry (or read a `file://`/`http(s)://` reference), then instantiate the component in `wasmtime`.
+3. **Flatten stages** — stages are flattened, in declaration order, into a single linear list of steps. Stage names only matter for the `-s`/`--stages` filter (see [Stages and Steps](./stages-steps.md)); they don't create parallel branches or express dependencies beyond ordering.
+4. **Execute steps sequentially.** For each step the engine: checks for cancellation, reports progress, evaluates `condition` (skipping the step if it's falsy), merges the step's `config` over the accumulated configuration with `$(...)` substitution, calls the plugin's `execute` export, records a `StepResult` (name, success, skipped, duration, error), logs any warnings, stops the pipeline on failure unless `continueOnError` is set, appends the step's outputs under `output:<stepName>:<key>`, and finally evaluates `haltIf` (cleanly stopping the pipeline if it's truthy).
+5. **Summarize** — a summary table is rendered and the process exits with a code reflecting the outcome.
 
-### Middleware Pipeline
+This is the same run semantics the pipeline has always had — the difference in the current engine is that step 2 now produces sandboxed WASM component instances instead of loaded .NET assemblies.
 
-Each step in your pipeline is a middleware that:
+## Plugin Lifetime and Shared State
 
-- Receives the pipeline context
-- Performs its specific action
-- Updates the context with its results
-- Passes the context to the next middleware
+Each plugin gets **one component instance for the whole pipeline run**, created during plugin resolution and kept alive until the pipeline ends. This lets a plugin keep state in memory across steps: for example, the `git` plugin's `latest-tag` middleware can store the resolved tag SHA in instance memory, and a later `commits` step on the same plugin reads it back. Instances (and their `Store`) are dropped once the pipeline finishes.
 
-This pattern allows for a flexible and extensible pipeline where each step can build upon the results of previous steps.
+## Error Handling and Exit Codes
 
-## Execution Flow
+The engine's errors map to a small, doc-promised set of process exit codes: `0` success, `1` general/unexpected error, `2` configuration error, `3` plugin load error, `4` pipeline execution error (a step failed).
 
-When you run the `moonlit release` command, the following detailed sequence occurs:
-
-1. **Configuration Parsing**:
-   - The release command uses the release configuration parser to parse the YAML file into a `ReleaseConfiguration` instance
-   - If specific stages were specified in the command arguments, the configuration is filtered to include only those stages
-   - If command-line arguments were provided, they override any matching arguments defined in the configuration file
-
-2. **Release Pipeline Creation**:
-   - A new release pipeline is created using the `ReleasePipelineFactory`
-   - The factory creates a new .NET configuration instance using `ConfigurationBuilder` with the following sources (in order of precedence):
-     - Environment variables with the prefix "MOONLIT_"
-     - Environment variables from .env file
-     - Arguments and variables from the configuration file (accessible via "args:<arg_name>" and "vars:<variable_name>")
-
-3. **Plugin Loading**:
-   - The plugins specified in the configuration are loaded in parallel
-   - For each plugin:
-     - The plugin assembly is loaded
-     - An instance of the plugin startup class is created
-     - A new `ServiceCollection` is created (each plugin has its own DI scope)
-     - A new configuration is created, combining the release configuration with the plugin-specific configuration
-     - The plugin's `Configure` method is called with the service collection and configuration
-     - A service provider is created from the service collection
-     - A new instance of the plugin is created with the service provider
-
-4. **Pipeline Execution**:
-   - The release pipeline executes all middlewares in the order specified in the configuration
-   - Each middleware receives the context from the previous middleware and updates it with its results
-   - The pipeline handles errors and provides logging throughout the execution
-
-## Context Sharing
-
-One of the key features of Moonlit is the ability to share data between steps. This is done through:
-
-1. **Output Variables**: Each step can produce output variables that can be referenced by later steps
-2. **Configuration System**: Moonlit's configuration system allows for dynamic values using the `$(output:step:property)` syntax
-3. **Dependency Injection**: Moonlit uses .NET's dependency injection system to share services between steps
-
-## Error Handling
-
-Moonlit includes robust error handling:
-
-- If a step fails, the pipeline execution stops by default
-- Errors are logged with detailed information
-- You can configure steps to continue on error if needed
+By default a failing step stops the pipeline; setting `continueOnError: true` on a step lets the pipeline continue past it. Because `wasmtime` permanently poisons a component's `Store` after a trap, a plugin that traps can't safely keep running for the rest of that pipeline run — so the engine also marks the *plugin* itself unavailable after a trap, and any later step that targets it fails fast rather than silently losing that plugin's in-memory state.
 
 ## Next Steps
 
