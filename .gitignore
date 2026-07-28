@@ -59,4 +59,3 @@ nunit-*.xml
 
 node_modules/
 .vitepress/cache/
-.vitepress/dist/
