@@ -54,7 +54,7 @@ This makes `--output json` suitable for CI systems and other tooling that wants 
 
 ### Pipeline File Not Found
 
-**Symptom**: `Pipeline file '<path>' does not exist.` or `No pipeline file found in '<dir>' (looked for release.yml, ...).`
+**Symptom**: `Pipeline file '<path>' does not exist.` or `No pipeline file found in '<dir>' (looked for release.yml, moonlit.yml).`
 
 **Fix**: Pass the correct path with `-f`/`--file`, or run `moonlit` from the directory containing `release.yml`.
 

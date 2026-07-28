@@ -9,7 +9,7 @@ This page is the complete property-by-property reference for Moonlit's YAML pipe
 
 ## File Name and Location
 
-By default, `moonlit run` and `moonlit validate` look for `release.yml` in the working directory. Point them at a different file with `-f`/`--file` — both `.yml` and `.yaml` extensions are accepted.
+By default, `moonlit run` and `moonlit validate` look for `release.yml` in the working directory, falling back to `moonlit.yml` if `release.yml` isn't present. `release.yml` is the recommended name; point either command at a different file with `-f`/`--file` — both `.yml` and `.yaml` extensions are accepted.
 
 ## Top-Level Schema
 

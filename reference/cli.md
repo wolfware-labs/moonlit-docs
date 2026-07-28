@@ -36,7 +36,7 @@ moonlit run [-f|--file <path>] [-w|--working-dir <path>] [-s|--stage <name>]... 
 
 | Flag | Description |
 |---|---|
-| `-f`, `--file <path>` | Pipeline file to run. Default: `release.yml` in the working directory. |
+| `-f`, `--file <path>` | Pipeline file to run. When omitted, Moonlit looks for `release.yml` in the working directory, falling back to `moonlit.yml` if that isn't present. |
 | `-w`, `--working-dir <path>` (alias `-d`) | Working directory for the run. Default: the current directory. |
 | `-s`, `--stage <name>` | Run only the named stage(s). Repeatable and/or comma-separated (`-s build,test` and `-s build -s test` are equivalent). Default: all stages. |
 | `-a`, `--arg <key=value>` | Set a pipeline argument, overriding the same key under the YAML's `arguments:` section. Repeatable. An entry without an `=` fails with `Invalid argument format: <value>` (exit code 2). |
@@ -67,7 +67,7 @@ moonlit validate [-f|--file <path>] [-w|--working-dir <path>]
 
 | Flag | Description |
 |---|---|
-| `-f`, `--file <path>` | Pipeline file to validate. Default: `release.yml` in the working directory. |
+| `-f`, `--file <path>` | Pipeline file to validate. Same resolution as `moonlit run`: `release.yml` in the working directory, falling back to `moonlit.yml`. |
 | `-w`, `--working-dir <path>` (alias `-d`) | Working directory. Default: the current directory. |
 
 On success, prints `✔ Configuration valid` and exits `0`. On failure, it prints the same miette diagnostics `run` would (see [Error Handling](./error-handling.md)) and exits with the matching code.
