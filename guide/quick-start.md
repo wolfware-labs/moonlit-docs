@@ -5,202 +5,67 @@ description: Create your first Moonlit pipeline in minutes
 
 # Quick Start Guide
 
-This guide will walk you through creating a simple Moonlit pipeline to help you get started quickly. We'll create a basic pipeline that builds a project and creates a GitHub release. While this example uses a .NET project, Moonlit works with various project types and technologies.
+This guide walks you through writing a minimal `release.yml` and running it with Moonlit.
 
 ## Prerequisites
 
 Before you begin, make sure you have:
 
-- [Installed Moonlit](./installation.md)
-- A .NET project with a Git repository
-- A GitHub account and personal access token (for GitHub operations)
+- [Installed Moonlit](./installation.md) — `moonlit version` should print its version banner
+- A Git repository with an `origin` remote (the example pipeline reads it)
 
 ## Step 1: Create a Configuration File
 
-Create a file named `moonlit.yml` in the root of your project with the following content:
+Create a file named `release.yml` in the root of your project with the following content:
 
 ```yaml
 name: "My First Pipeline"
 
 plugins:
-  - name: "git"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.5"
-  - name: "gh"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0-next.6"
-    config:
-      token: $(GITHUB_TOKEN)
-  - name: "sr"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.5"
-    config:
-      openAi:
-        apiKey: $(OPENAI_API_KEY)
-  - name: "dotnet"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Dotnet/1.0.0-next.5"
-    config:
-      nugetApiKey: $(NUGET_API_KEY)
+  - name: git
+    url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
 
 stages:
-  analyze:
+  info:
     - name: repo
       run: git.repo-context
-    - name: tag
-      run: git.latest-tag
-      config:
-        prefix: "v"
-    - name: commits
-      run: git.commits
-    - name: conventionalCommits
-      run: sr.analyze
-      config:
-        commits: $(output:commits:details)
-    - name: version
-      run: sr.calculate-version
-      config:
-        branch: $(output:repo:branch)
-        baseVersion: $(output:tag:name)
-    - name: changelog
-      run: sr.generate-changelog
-
-  build:
-    - name: build
-      run: dotnet.build
-      config:
-        project: "./src/MyProject.csproj"
-        version: $(output:version:nextFullVersion)
-        configuration: "Release"
-
-  release:
-    - name: createRelease
-      run: gh.create-release
-      config:
-        name: "Release $(output:version:nextVersion)"
-        tag: "v$(output:version:nextVersion)"
-        changelog: $(output:changelog:categories)
-        prerelease: $(output:version:isPrerelease)
 ```
 
-## Step 2: Set Environment Variables
+- **plugins** lists the WebAssembly components your pipeline needs, each pulled from an OCI registry via an `oci://` reference.
+- **stages** is an ordered map of stage name to a list of steps.
+- Each step has a **name** (used to namespace its outputs) and a **run** value of the form `plugin.middleware` — here, `git.repo-context`, where `git` is the plugin's `name` and `repo-context` is the middleware it exports.
 
-Moonlit uses environment variables for sensitive information. Set the required tokens and API keys:
+## Step 2: Validate the Pipeline
+
+Before running it, check that the file parses, the plugin resolves, and every `run:` reference is valid:
 
 ```bash
-# For Windows
-set GITHUB_TOKEN=your_github_token
-set OPENAI_API_KEY=your_openai_api_key
-set NUGET_API_KEY=your_nuget_api_key
-
-# For macOS/Linux
-export GITHUB_TOKEN=your_github_token
-export OPENAI_API_KEY=your_openai_api_key
-export NUGET_API_KEY=your_nuget_api_key
+moonlit validate
 ```
 
-## Step 3: Run the Pipeline
+`moonlit validate` parses the YAML, resolves the plugins it references, and verifies the middleware names — without executing anything.
 
-Now you can run your pipeline:
+## Step 3: Preview With a Dry Run
 
 ```bash
-moonlit -f moonlit.yml
+moonlit run --dry-run
 ```
 
-This will execute all stages in the pipeline. If you want to run only specific stages:
+Adding `--dry-run` to `moonlit run` resolves the plugins and walks the pipeline without executing any step's middleware.
+
+## Step 4: Run the Pipeline
 
 ```bash
-moonlit -f moonlit.yml -s build
+moonlit run
 ```
 
-## Step 4: Examine the Output
+By default, `moonlit run` looks for `release.yml` in the current directory. Point it at a different file with `-f`:
 
-Moonlit will display the progress of each step in the pipeline. If everything is configured correctly, you should see output similar to:
-
-```
-🚀 Executing release pipeline: My First Pipeline
-📁 Working Directory: D:\path\to\your\project
-⚙ Configuration File: moonlit.yml
-
-[00:17:08]   ================================================================================
-[00:17:08]   Step: repo
-[00:17:08]   Middleware: Wolfware.Moonlit.Plugins.Git.Middlewares.GetRepositoryContext
-[00:17:08]   Version: 1.0.0
-[00:17:08]   ================================================================================
-[00:17:08]       INFO Current branch: main
-[00:17:08]       INFO Remote URL: https://github.com/username/repo.git
-[00:17:08]   --------------------------------------------------------------------------------
-[00:17:08]   SUCCESS - Execution time: 125 ms.
-[00:17:08]   --------------------------------------------------------------------------------
-[00:17:08]              
-[00:17:08]              
-[00:17:08]   ================================================================================
-[00:17:08]   Step: build
-[00:17:08]   Middleware: Wolfware.Moonlit.Plugins.Dotnet.Middlewares.DotNetBuildMiddleware
-[00:17:08]   Version: 1.0.0
-[00:17:08]   ================================================================================
-[00:17:09]       INFO Building project: ./src/MyProject.csproj
-[00:17:10]       INFO Build completed successfully
-[00:17:10]   --------------------------------------------------------------------------------
-[00:17:10]   SUCCESS - Execution time: 2105 ms.
-[00:17:10]   --------------------------------------------------------------------------------
-[00:17:10]              
-[00:17:10]              
-[00:17:10]   ================================================================================
-[00:17:10]   Step: tag
-[00:17:10]   Middleware: Wolfware.Moonlit.Plugins.Git.Middlewares.GetLatestTag
-[00:17:10]   Version: 1.0.0
-[00:17:10]   ================================================================================
-[00:17:10]       INFO Found tag: v1.0.0
-[00:17:10]   --------------------------------------------------------------------------------
-[00:17:10]   SUCCESS - Execution time: 356 ms.
-[00:17:10]   --------------------------------------------------------------------------------
-[00:17:10]              
-[00:17:10]              
-[00:17:10]   ================================================================================
-[00:17:10]   Step: version
-[00:17:10]   Middleware: Wolfware.Moonlit.Plugins.SemanticRelease.Middlewares.CalculateVersion
-[00:17:10]   Version: 1.0.0
-[00:17:10]   ================================================================================
-[00:17:10]       INFO Calculating next version
-[00:17:10]       INFO Next version calculated: 1.1.0
-[00:17:10]   --------------------------------------------------------------------------------
-[00:17:10]   SUCCESS - Execution time: 78 ms.
-[00:17:10]   --------------------------------------------------------------------------------
-[00:17:10]              
-[00:17:10]              
-[00:17:10]   ================================================================================
-[00:17:10]   Step: createRelease
-[00:17:10]   Middleware: Wolfware.Moonlit.Plugins.Github.Middlewares.CreateRelease
-[00:17:10]   Version: 1.0.0
-[00:17:10]   ================================================================================
-[00:17:11]       INFO Creating GitHub release: v1.1.0
-[00:17:11]       INFO Release created successfully
-[00:17:11]   --------------------------------------------------------------------------------
-[00:17:11]   SUCCESS - Execution time: 1254 ms.
-[00:17:11]   --------------------------------------------------------------------------------
+```bash
+moonlit run -f ./path/to/release.yml
 ```
 
-## Understanding the Configuration
-
-Let's break down the configuration file:
-
-- **name**: The name of your pipeline
-- **plugins**: The list of plugins to use in your pipeline
-  - Each plugin has a name and a URL (NuGet package)
-  - Some plugins require configuration (like the GitHub token)
-- **stages**: Logical groupings of steps
-  - Each stage contains a list of steps
-  - Steps are executed in the order they are defined
-
-## Using Output from Previous Steps
-
-One powerful feature of Moonlit is the ability to use output from previous steps:
-
-```yaml
-$(output:stepName:propertyName)
-```
-
-In our example, we used:
-- `$(output:repo:branch)` to get the current branch from the repo step
-- `$(output:tag:name)` to get the latest tag name
-- `$(output:version:nextVersion)` to get the calculated version
+Moonlit resolves the `git` plugin, then executes the `repo` step, printing the current branch and remote URL it read from your repository.
 
 ## Next Steps
 

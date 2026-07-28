@@ -5,60 +5,52 @@ description: Learn how to install and set up Moonlit for your projects
 
 # Installing Moonlit
 
-Moonlit is distributed as a .NET tool via NuGet. This guide will walk you through the installation process and initial setup.
+Moonlit ships as a single native binary, `moonlit`, with no separate runtime to install. Pick whichever channel below fits your platform and workflow.
 
-## Prerequisites
+## Prebuilt Archives
 
-Before installing Moonlit, ensure you have the following prerequisites:
+Prebuilt, cargo-dist-built archives are published for:
 
-- **.NET SDK**: Version 9.0 or later
-- **NuGet**: Latest version recommended
-- **Git**: Required for most version control operations (used by Git plugin)
+| Platform | Architecture |
+|---|---|
+| Linux | x64, arm64 |
+| macOS | universal (Intel + Apple Silicon) |
+| Windows | x64 |
 
-## Installing as a Global Tool
+Download the archive for your platform from the [GitHub releases page](https://github.com/wolfware-labs/moonlit/releases), extract it, and place the `moonlit` binary somewhere on your `PATH`.
 
-The simplest way to install Moonlit is as a global .NET tool, which makes it available from anywhere on your system:
+## Homebrew
 
-```bash
-dotnet tool install --global moonlit-cli
-```
-
-After installation, you can verify that Moonlit is installed correctly by running:
+On macOS or Linux with Homebrew installed, install from the Wolfware tap:
 
 ```bash
-moonlit --version
+brew install wolfware/tap/moonlit
 ```
 
-This should display the current version of Moonlit.
+## Cargo
 
-
-## Installing Specific Versions
-
-If you need to install a specific version of Moonlit:
+If you already have a Rust toolchain installed, you can build and install Moonlit from crates.io:
 
 ```bash
-dotnet tool install --global moonlit-cli --version 1.0.0
+cargo install moonlit-cli
 ```
 
-Replace `1.0.0` with the version you want to install.
+## Container Image
 
-## Updating Moonlit
-
-To update Moonlit to the latest version:
+A container image is published as `wolfware/moonlit`, useful for running Moonlit in CI without installing anything on the runner:
 
 ```bash
-dotnet tool update --global moonlit-cli
+docker pull wolfware/moonlit
+docker run --rm -v "$(pwd)":/workspace -w /workspace wolfware/moonlit run
 ```
 
+## Verifying the Installation
 
-## Uninstalling Moonlit
-
-If you need to uninstall Moonlit:
+Once installed, confirm Moonlit is on your `PATH` and check its version:
 
 ```bash
-dotnet tool uninstall --global moonlit-cli
+moonlit version
 ```
-
 
 ## Next Steps
 
