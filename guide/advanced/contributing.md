@@ -57,7 +57,7 @@ Every commit must be signed off under the [Developer Certificate of Origin 1.1](
 Signed-off-by: Your Name <you@example.com>
 ```
 
-`git commit -s` adds this trailer automatically. Pull requests with unsigned commits are rejected by CI.
+`git commit -s` adds this trailer automatically. Sign off your commits before opening a pull request; unsigned commits may be asked to be re-signed during review.
 
 ## Submitting Changes
 

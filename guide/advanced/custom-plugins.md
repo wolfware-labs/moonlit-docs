@@ -77,7 +77,7 @@ impl Middleware for Greet {
 
 ### The `Context`
 
-`Context` is the capability handed to every middleware — it's the SDK's ergonomic wrapper over the plugin's host imports (§6 of the technical spec: `moonlit:host/host` and `moonlit:host/process`):
+`Context` is the capability handed to every middleware — it's the SDK's ergonomic wrapper over the plugin's host imports (§6 of the technical spec: `moonlit:plugin/host` and `moonlit:plugin/process`):
 
 | Method | Purpose |
 |---|---|
