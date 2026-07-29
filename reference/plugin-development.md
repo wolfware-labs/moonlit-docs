@@ -115,9 +115,9 @@ every `Middleware::execute` receives:
 | `ctx.state::<T>()` | the `state:` type declared in `moonlit_plugin!`; panics if none was declared |
 | `ctx.plugin_config::<T>()` | the `config:` type declared in `moonlit_plugin!`; panics if none was declared |
 
-The `Host` trait that `Context` is generic over abstracts these calls so the exact same middleware
-code runs against the real host (`RealHost`, `wasm32` only) or a `MockHost` in native unit tests —
-see `sdk::testing`.
+The `Host` trait that `Context` borrows as `&dyn Host` abstracts these calls so the exact same
+middleware code runs against the real host (`RealHost`, `wasm32` only) or a `MockHost` in native
+unit tests — see `sdk::testing`.
 
 ## `MiddlewareResult` and `Output`
 
@@ -161,7 +161,7 @@ Beyond `Context`'s direct methods, the SDK ships small modules for common needs:
 |---|---|
 | `sdk::process` | A safe wrapper over `moonlit:plugin/process`, plus `LineHandler` — a standard severity heuristic (`"error"`/`"failed"` → error, `"warning"` → warn, else info) shared by the docker/dotnet/nodejs plugins for classifying subprocess output lines. |
 | `sdk::http` | A small blocking client over `wasi:http`: `get`/`post`/`put`, bearer auth, JSON via `serde`, per-request timeout. |
-| `sdk::env` | Environment variable access routed through `get-config`, so permission filtering applies uniformly. |
+| `sdk::env` | Environment variable access via `wasi:cli/environment` (the host's `env-var`/`env-vars`), pre-filtered by the plugin's `env` permission grant. |
 | `sdk::clock` | `wasi:clocks/monotonic-clock` access. |
 | `sdk::random` | `wasi:random/random` access. |
 | `sdk::config` | The coercing JSON deserializer (`from_json_value`) used for both plugin- and step-level config binding. |

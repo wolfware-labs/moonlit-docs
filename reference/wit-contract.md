@@ -21,9 +21,8 @@ what that SDK compiles down to, and is the ground truth for anyone targeting the
 ## Where it lives
 
 The canonical file is `engine/wit/moonlit-plugin.wit` in the Moonlit source tree; the SDK vendors
-an identical copy and a test asserts the two never drift. The engine refuses to instantiate a
-component whose world's package version major differs from what it was built against, with a
-friendly diagnostic rather than a wasmtime trap.
+an identical copy and a test asserts the two never drift. Every plugin component targets the
+`plugin` world of package `moonlit:plugin@0.1.0`.
 
 ## The JSON boundary
 

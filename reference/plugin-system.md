@@ -82,7 +82,9 @@ Resolution proceeds:
    minutes; within that TTL, it also skips the network. `--offline` on `moonlit run` turns any cache
    miss into a hard failure instead of pulling.
 3. On a cache miss, pull the manifest (accepting both OCI image manifests and artifact manifests)
-   and verify its `artifactType`/media types match the Moonlit plugin convention above.
+   and verify its config and layer media types match the Moonlit plugin convention above
+   (`artifactType` is set by `moonlit plugin publish` at publish time but isn't re-checked on
+   pull).
 4. Pull the single component layer, verifying its content digest against the manifest.
 5. Store the blob at `oci/sha256/<digest>`, materialize it at `plugins/<digest>/plugin.wasm`, and
    write `meta.json` with the source reference, digest, size, and pulled-at timestamp.
