@@ -5,183 +5,114 @@ description: Documentation for the Docker plugin in Moonlit
 
 # Docker Plugin
 
-The Docker plugin provides integration with Docker. It allows you to build Docker images, push them to registries, and deploy them to target environments.
+Authenticate, set up buildx, build/push images, and deploy via the `docker` CLI.
 
-## Installation
-
-To use the Docker plugin in your Moonlit pipeline, add it to the `plugins` section of your configuration file:
+## Reference
 
 ```yaml
 plugins:
-  - name: "docker"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Docker/1.0.0"
-    config:
-      username: $(DOCKER_USERNAME)
-      password: $(DOCKER_PASSWORD)
+  - name: docker
+    url: "oci://registry.moonlitbuild.dev/wolfware/docker:1.0.0"
+    permissions:
+      exec: ["docker"]
+      env: ["MOONLIT_DOCKER_BUILDX_BUILDER"]
 ```
 
-Note that the Docker plugin requires credentials to authenticate with Docker registries. You can set these credentials as environment variables and reference them in your configuration file.
+Moonlit is deny-by-default: a plugin with no `permissions:` block gets zero capabilities — see [Sandboxing](../guide/concepts/sandboxing.md) for the full model. The Docker plugin shells out to the `docker` CLI, so it needs `exec: ["docker"]`. `build-and-push` resolves its builder in order — an explicit `builder` config value, then the name recorded by a prior `setup-buildx` step in this run, then the `MOONLIT_DOCKER_BUILDX_BUILDER` environment variable — so the plugin also needs `env: ["MOONLIT_DOCKER_BUILDX_BUILDER"]`. No plugin-level config; credentials and options are passed per middleware.
 
-## Middlewares
+## login
 
-The Docker plugin provides the following middlewares:
+Authenticate to a Docker registry, with the password fed via stdin (never on the process argv).
 
-### build
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `registry` | Optional, default Docker Hub | Registry to log in to; omitted for Docker Hub. |
+| `username` | **Required** | |
+| `password` | **Required** | |
 
-The `build` middleware builds a Docker image.
+No outputs. Blank `username` or `password` fails with `"Docker login requires both username and password to be set."`
 
-#### Inputs
+## setup-buildx
 
-| Name | Type | Required | Default | Description |
-|------|------|----------|---------|-------------|
-| dockerfile | string | Yes | - | The path to the Dockerfile |
-| context | string | Yes | - | The build context directory |
-| tags | array | No | - | An array of tags to apply to the image |
+Create a buildx builder.
 
-#### Outputs
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `name` | Optional, default `moonlit-builder-<generated uuid>` | Builder name. |
+| `driver` | Optional, default `docker-container` | |
+| `endpoint` | Optional | |
+| `bootstrap` | Optional, default `true` | Passes `--bootstrap`. |
+| `setBuilderVariable` | Optional, default `true` | Record the builder name in the plugin's shared run state, for a later `build-and-push` step to pick up automatically. |
+| `platforms` | Optional array | Each entry passed as its own `--platform`. |
 
-This middleware does not produce any documented outputs.
+| Output | Description |
+|---|---|
+| `name` | The builder name (explicit or generated). |
 
-| Name | Type | Description |
-|------|------|-------------|
-| *None* | | |
+## build-and-push
 
-#### Example
+Build an image and push it (default) or load it locally.
+
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `builder` | Optional, falls back to the `setup-buildx` shared state, then `MOONLIT_DOCKER_BUILDX_BUILDER` | Passed as `--builder`. |
+| `tags` | Optional array | Each entry passed as its own `--tag`. |
+| `file` | Optional | Passed as `--file`. |
+| `context` | Optional, default `.` | Build context, passed positionally last. |
+| `push` | Optional, default `true` | `true` → `--push`; `false` → `--load`. |
+| `buildArgs` | Optional array of `KEY=value` | Each entry passed as its own `--build-arg`. |
+| `labels` | Optional map | Each entry passed as its own `--label k=v`. |
+| `platforms` | Optional array | Joined with commas into a single `--platform`. |
+| `noCache` | Optional, default `false` | Passes `--no-cache`. |
+| `pull` | Optional, default `false` | Passes `--pull`. |
+| `cacheFrom` | Optional array | Each entry passed as its own `--cache-from`. |
+| `cacheTo` | Optional array | Each entry passed as its own `--cache-to`. |
+
+No outputs.
+
+## deploy
+
+Deploy an image via `docker compose`, against a remote Docker host.
+
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `host` | **Required** | Set as `DOCKER_HOST` for the `docker compose` invocation (e.g. `ssh://user@host`). Blank → failure. |
+| `composeFile` | **Required** | Passed as `docker compose -f <composeFile>`. Blank → failure. |
+| `service` | Optional | When set, the step fails with `"Swarm deploys are not supported yet."` — MVP supports the compose path only. |
+| `environment` | Optional map | Each entry set as an environment variable on the `docker compose` invocation. |
+| `pull` | Optional, default `true` | Passes `--pull always`. |
+
+No outputs. `docker compose -f <composeFile> up -d [--pull always]`, with `DOCKER_HOST=<host>` and the `environment` entries set on the child process.
+
+## Example
 
 ```yaml
-stages:
-  build:
-    - name: buildImage
-      run: docker.build
-      config:
-        dockerfile: "./Dockerfile"
-        context: "./"
-        tags:
-          - "mycompany/myapp:1.0.0"
-          - "mycompany/myapp:latest"
-```
+plugins:
+  - name: docker
+    url: "oci://registry.moonlitbuild.dev/wolfware/docker:1.0.0"
+    permissions:
+      exec: ["docker"]
+      env: ["MOONLIT_DOCKER_BUILDX_BUILDER"]
 
-### login
-
-::: warning Planned Feature
-The `login` middleware is planned for future implementation but is not available in the current version of the Docker plugin.
-:::
-
-The `login` middleware will log in to a Docker registry.
-
-#### Planned Inputs
-
-| Name | Type | Required | Default | Description |
-|------|------|----------|---------|-------------|
-| registry | string | No | "docker.io" | The URL of the Docker registry to log in to |
-
-#### Planned Outputs
-
-This middleware is not expected to produce any outputs.
-
-| Name | Type | Description |
-|------|------|-------------|
-| *None* | | |
-
-#### Example (Future Implementation)
-
-```yaml
 stages:
   publish:
     - name: login
       run: docker.login
       config:
-        registry: "docker.io"
-```
-
-### push
-
-The `push` middleware pushes a Docker image to a registry.
-
-#### Inputs
-
-| Name | Type | Required | Default | Description |
-|------|------|----------|---------|-------------|
-| image | string | Yes | - | The name of the image to push |
-| tags | array | Yes | - | An array of tags to push |
-
-#### Outputs
-
-This middleware does not produce any documented outputs.
-
-| Name | Type | Description |
-|------|------|-------------|
-| *None* | | |
-
-#### Example
-
-```yaml
-stages:
-  publish:
-    - name: push
-      run: docker.push
+        registry: "ghcr.io"
+        username: $(DOCKER_USERNAME)
+        password: $(DOCKER_PASSWORD)
+    - name: buildx
+      run: docker.setup-buildx
       config:
-        image: "mycompany/myapp"
+        platforms: ["linux/amd64", "linux/arm64"]
+    - name: buildAndPush
+      run: docker.build-and-push
+      config:
         tags:
-          - "1.0.0"
-          - "latest"
+          - "ghcr.io/mycompany/myapp:$(output:version:nextVersion)"
+          - "ghcr.io/mycompany/myapp:latest"
+        platforms: ["linux/amd64", "linux/arm64"]
 ```
 
-### deploy
-
-::: warning Planned Feature
-The `deploy` middleware is planned for future implementation but is not available in the current version of the Docker plugin.
-:::
-
-The `deploy` middleware will deploy a Docker image to a target environment.
-
-#### Planned Inputs
-
-| Name | Type | Required | Default | Description |
-|------|------|----------|---------|-------------|
-| image | string | Yes | - | The image to deploy |
-| environment | string | Yes | - | The name of the environment to deploy to |
-| host | string | Yes | - | The host to deploy to |
-| sshKey | string | Yes | - | The SSH key to use for connecting to the host |
-| composeFile | string | Yes | - | The path to the Docker Compose file |
-
-#### Planned Outputs
-
-| Name | Type | Description |
-|------|------|-------------|
-| environment | string | The name of the environment that was deployed to |
-
-#### Example (Future Implementation)
-
-```yaml
-stages:
-  deploy:
-    - name: deployToProduction
-      run: docker.deploy
-      condition: $(output:repo:branch) == 'main'
-      config:
-        image: "mycompany/myapp:$(output:version:nextVersion)"
-        environment: "production"
-        host: $(DEPLOY_HOST)
-        sshKey: $(DEPLOY_SSH_KEY)
-        composeFile: "./docker-compose.yml"
-```
-
-## Usage in Pipelines
-
-The Docker plugin is commonly used in deployment pipelines to:
-
-1. Build Docker images with appropriate tags
-2. Push images to Docker registries
-3. Deploy images to target environments
-
-These middlewares are typically used together to create a complete Docker deployment pipeline.
-
-For a complete example of using the Docker plugin in a pipeline, see the [Docker Deployment](./examples/docker-deployment.md) example.
-
-## Next Steps
-
-- Learn about the [Git Plugin](./git.md) for Git repository operations
-- Explore the [GitHub Plugin](./github.md) for GitHub API integration
-- See the [Semantic Release Plugin](./semantic-release.md) for semantic versioning
-- See the [Configuration](../guide/concepts/configuration.md) page for more information about configuring plugins
+For a complete worked pipeline, see the [Docker Deployment](./examples/docker-deployment.md) example.

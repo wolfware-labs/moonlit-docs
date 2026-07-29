@@ -5,141 +5,125 @@ description: Documentation for the Dotnet plugin in Moonlit
 
 # Dotnet Plugin
 
-The Dotnet plugin provides integration with .NET projects. It allows you to build .NET projects without packing them, pack .NET projects into NuGet packages, and publish them to NuGet repositories.
+Build, pack, test, and publish .NET projects via the `dotnet` CLI.
 
-## Installation
-
-To use the Dotnet plugin in your Moonlit pipeline, add it to the `plugins` section of your configuration file:
+## Reference
 
 ```yaml
 plugins:
-  - name: "dotnet"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Dotnet/1.0.0"
+  - name: dotnet
+    url: "oci://registry.moonlitbuild.dev/wolfware/dotnet:1.0.0"
     config:
-      apiKey: $(NUGET_API_KEY)
+      nugetApiKey: $(NUGET_API_KEY)
+    permissions:
+      exec: ["dotnet"]
+      filesystem: read-write
 ```
 
-Note that the Dotnet plugin requires an API key to authenticate with NuGet repositories for publishing packages. You can set this key as an environment variable and reference it in your configuration file.
+Moonlit is deny-by-default: a plugin with no `permissions:` block gets zero capabilities — see [Sandboxing](../guide/concepts/sandboxing.md) for the full model. The Dotnet plugin shells out to the `dotnet` CLI, so it needs `exec: ["dotnet"]`; `pack` and `test` write their output into a `.moonlit/` directory under the working directory (wiped and recreated each run), so the plugin also needs `filesystem: read-write`.
 
-## Middlewares
+Plugin-level config: `nugetSource` (default `https://api.nuget.org/v3/index.json`) and `nugetApiKey` (default `""`, used as the fallback for `push`). `apiKey` is accepted as an alias of `nugetApiKey` — `nugetApiKey` wins when both are set.
 
-The Dotnet plugin provides the following middlewares:
+## build
 
-### build
+Build a project with SemVer-derived assembly metadata, without packing it.
 
-The `build` middleware builds a .NET project without packing it.
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `project` | **Required** | Path to the `.csproj`/`.fsproj` file, resolved against the working directory. Missing → failure. |
+| `version` | Optional | Base version used to derive the three metadata fields below when they aren't set explicitly. |
+| `assemblyVersion` | Optional | Defaults to `version` with any prerelease suffix stripped. |
+| `fileVersion` | Optional | Defaults to `version` with any prerelease suffix stripped. |
+| `informationalVersion` | Optional | Defaults to the full `version`, prerelease and build metadata included. |
+| `configuration` | Optional, default `Release` | Build configuration. |
+| `noRestore` | Optional, default `false` | Passes `--no-restore`. |
 
-#### Inputs
+No outputs. `dotnet build <project> -p:AssemblyVersion=… -p:FileVersion=… -p:InformationalVersion=… --configuration <configuration> [--no-restore]`. Any of the three version fields left unresolved (no `version` and no explicit override) fails the step.
 
-| Name | Type | Required | Default | Description |
-|------|------|----------|---------|-------------|
-| project | string | Yes | - | The path to the .NET project file to build |
-| configuration | string | No | "Release" | The configuration to use for building |
+## pack
 
-#### Outputs
+Pack a project into a `.nupkg`.
 
-This middleware does not produce any outputs.
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `project` | **Required** | Path to the project file. Missing → failure. |
+| `version` | Optional | Base version for the four derived fields below. |
+| `assemblyVersion` / `fileVersion` / `informationalVersion` | Optional | Same derivation as `build`. |
+| `packageVersion` | Optional | Defaults to `version` with any build-metadata suffix stripped. |
+| `configuration` | Optional, default `Release` | Build configuration. |
+| `noBuild` | Optional, default `false` | Passes `--no-build`. |
+| `noRestore` | Optional, default `false` | Passes `--no-restore`. |
 
-| Name | Type | Description |
-|------|------|-------------|
-| *None* | | |
+| Output | Description |
+|---|---|
+| `packagePath` | Working-directory-relative path to the produced `.nupkg`. |
 
-#### Example
+The package is written to a per-project directory under `.moonlit/dotnet/`, wiped before the run. No `.nupkg` produced → failure `"No .nupkg files were created."`; more than one → a warning, using the alphabetically-first file.
+
+## push
+
+Publish a `.nupkg` to a NuGet source.
+
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `package` | **Required** | Path to the `.nupkg` file. Missing → failure. |
+| `source` | Optional, falls back to plugin config `nugetSource` | The feed to push to. Blank in both places → failure. |
+| `apiKey` | Optional, falls back to plugin config `nugetApiKey`/`apiKey` | The API key. Blank in both places → failure. |
+
+No outputs. `dotnet nuget push <package> --source <source> --api-key <apiKey> --timeout 30`. A `401`/`403` response maps to an authentication-error failure message.
+
+## test
+
+Run tests and report pass/fail/skip counts from the TRX results file.
+
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `project` | **Required** | Path to the test project. Missing → failure. |
+| `configuration` | Optional, default `Release` | Build configuration. |
+| `filter` | Optional | Passed as `--filter`. |
+| `noBuild` | Optional, default `false` | Passes `--no-build`. |
+| `collectCoverage` | Optional, default `false` | Passes `--collect "XPlat Code Coverage"`. |
+
+| Output | Description |
+|---|---|
+| `passed` | Number of passed tests. |
+| `failed` | Number of failed tests. |
+| `skipped` | Number of skipped tests. |
+| `total` | Total number of tests. |
+
+Results are written to `.moonlit/dotnet-test/` and parsed as TRX. A non-zero exit with failures reported fails with `"{failed} test(s) failed."`; a non-zero exit with no TRX or no failures reported fails generically; a zero exit with no TRX file fails with `"Test results file was not produced."`
+
+## Example
 
 ```yaml
+plugins:
+  - name: dotnet
+    url: "oci://registry.moonlitbuild.dev/wolfware/dotnet:1.0.0"
+    config:
+      nugetApiKey: $(NUGET_API_KEY)
+    permissions:
+      exec: ["dotnet"]
+      filesystem: read-write
+
 stages:
   build:
     - name: build
       run: dotnet.build
       config:
         project: "./src/MyProject.csproj"
+        version: $(output:version:nextFullVersion)
         configuration: "Release"
-```
-
-### pack
-
-The `pack` middleware packs a .NET project into a NuGet package.
-
-#### Inputs
-
-| Name | Type | Required | Default | Description |
-|------|------|----------|---------|-------------|
-| project | string | Yes | - | The path to the .NET project file to pack |
-| version | string | No | - | The version to use for the package |
-
-#### Outputs
-
-| Name | Type | Description |
-|------|------|-------------|
-| packagePath | string | The path to the created NuGet package file |
-
-#### Example
-
-```yaml
-stages:
-  publish:
     - name: pack
       run: dotnet.pack
       config:
         project: "./src/MyProject.csproj"
-        version: $(output:version:nextVersion)
-    - name: nextStep
-      run: some.other-middleware
-      config:
-        packageFile: $(output:pack:packagePath)
-```
+        version: $(output:version:nextFullVersion)
 
-### push
-
-The `push` middleware pushes a NuGet package to a NuGet repository.
-
-#### Inputs
-
-| Name | Type | Required | Default | Description |
-|------|------|----------|---------|-------------|
-| package | string | Yes | - | The path to the NuGet package file to push |
-| source | string | No | "https://api.nuget.org/v3/index.json" | The URL of the NuGet repository to push to |
-
-#### Outputs
-
-This middleware does not produce any outputs.
-
-| Name | Type | Description |
-|------|------|-------------|
-| *None* | | |
-
-#### Example
-
-```yaml
-stages:
-  publish:
-    - name: pack
-      run: dotnet.pack
-      config:
-        project: "./src/MyProject.csproj"
-        version: $(output:version:nextVersion)
+  release:
     - name: push
       run: dotnet.push
       config:
         package: $(output:pack:packagePath)
-        source: "https://api.nuget.org/v3/index.json"
 ```
 
-## Usage in Pipelines
-
-The Dotnet plugin is commonly used in release pipelines to:
-
-1. Build .NET projects without packing them
-2. Pack .NET projects into NuGet packages with the correct version number
-3. Publish packages to NuGet repositories like NuGet.org or private feeds
-
-These middlewares are typically used after testing the project, and after determining the version number using the Semantic Release plugin.
-
-For a complete example of using the Dotnet plugin in a pipeline, see the [NuGet Release Pipeline](./examples/nuget-release.md) example.
-
-## Next Steps
-
-- Learn about the [Git Plugin](./git.md) for Git repository operations
-- Explore the [GitHub Plugin](./github.md) for GitHub API integration
-- See the [Semantic Release Plugin](./semantic-release.md) for semantic versioning
-- See the [Configuration](../guide/concepts/configuration.md) page for more information about configuring plugins
+For a complete worked pipeline, see the [NuGet Release Pipeline](./examples/nuget-release.md) example.

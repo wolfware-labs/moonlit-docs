@@ -5,263 +5,139 @@ description: Documentation for the NodeJs plugin in Moonlit
 
 # NodeJs Plugin
 
-The NodeJs plugin provides integration with Node.js and NPM. It allows you to build Node.js projects, pack NPM packages, and push them to registries. Future versions will include more comprehensive features like running scripts defined in package.json and installing dependencies.
+Install, build, test, pack, and publish Node.js packages via the `npm` CLI.
 
-## Installation
-
-To use the NodeJs plugin in your Moonlit pipeline, add it to the `plugins` section of your configuration file:
+## Reference
 
 ```yaml
 plugins:
-  - name: "npm"
-    url: "nuget://Wolfware.Moonlit.Plugins.NodeJs/1.0.0"
+  - name: nodejs
+    url: "oci://registry.moonlitbuild.dev/wolfware/nodejs:1.0.0"
     config:
       token: $(NPM_TOKEN)
+    permissions:
+      exec: ["npm"]
+      filesystem: read-write
 ```
 
-Note that the NodeJs plugin requires a token to authenticate with NPM registries for publishing packages. You can set this token as an environment variable and reference it in your configuration file.
+Moonlit is deny-by-default: a plugin with no `permissions:` block gets zero capabilities — see [Sandboxing](../guide/concepts/sandboxing.md) for the full model. The NodeJs plugin shells out to the `npm` CLI, so it needs `exec: ["npm"]`; `pack` writes a tarball and `push` writes a scoped `.npmrc` (then removes it) under the working directory, so the plugin also needs `filesystem: read-write`.
 
-## Middlewares
+Plugin-level config: `registry` (default `https://registry.npmjs.org`) and `token` (default `""`, used as the fallback for `push`).
 
-The NodeJs plugin provides the following middlewares:
+## install
 
-### run-script
+Install dependencies with `npm ci` or `npm install`.
 
-::: warning Planned Feature
-The `run-script` middleware is planned for future implementation but is not available in the current version of the NodeJs plugin.
-:::
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `directory` | Optional, default `.` | Directory containing `package.json`. Missing `package.json` → failure. |
+| `production` | Optional, default `false` | Passes `--omit=dev`. |
+| `ci` | Optional, default: `true` when a lockfile is present | Forces `npm ci` (`true`) or `npm install` (`false`) regardless of lockfile detection. |
 
-The `run-script` middleware will execute a script defined in the package.json file.
+No outputs.
 
-#### Planned Inputs
+## run-script
 
-| Name | Type | Required | Default | Description |
-|------|------|----------|---------|-------------|
-| directory | string | Yes | - | The directory containing the package.json file |
-| script | string | Yes | - | The name of the script to run (as defined in package.json) |
-| args | string | No | - | Additional arguments to pass to the script |
+Run a `package.json` script.
 
-#### Planned Outputs
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `directory` | Optional, default `.` | Directory containing `package.json`. |
+| `script` | **Required** | The script name. |
+| `args` | Optional array | Forwarded after `--`. |
 
-| Name | Type | Description |
-|------|------|-------------|
-| output | string | The standard output from the script execution |
+No outputs. `npm run <script> [-- args…]`. A missing script fails with `"Script '<script>' not found in package.json."`
 
-#### Example (Future Implementation)
+## build
+
+Optionally bump the version, then run the build script.
+
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `directory` | Optional, default `.` | Directory containing `package.json`. |
+| `command` | Optional, default `build` | The script to run. |
+| `version` | Optional | When set, runs `npm version <version> --no-git-tag-version --allow-same-version` before the build script. |
+
+No outputs.
+
+## pack
+
+Optionally bump the version, then pack the package into a `.tgz` tarball.
+
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `directory` | Optional, default `.` | Directory containing `package.json`. |
+| `version` | Optional | Same version-bump step as `build`. |
+| `destination` | Optional, default `.moonlit/npm-pack` (directory-relative, wiped each run) | Pack destination. A user-provided destination is created if missing but never wiped. |
+
+| Output | Description |
+|---|---|
+| `packagePath` | Working-directory-relative path to the produced `.tgz`. |
+
+`npm pack --pack-destination <destination> --json`, parsing the resulting JSON for the tarball filename. No tarball produced → failure `"No package tarball was created."`
+
+## push
+
+Publish a tarball to an npm registry.
+
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `package` | **Required** | Path to the `.tgz` file. Missing → failure. |
+| `registry` | Optional, falls back to plugin config `registry` | The registry to publish to. |
+| `token` | Optional, falls back to plugin config `token` | The auth token. Blank in both places → failure. |
+| `tag` | Optional, default `latest` | Passed as `--tag`. |
+| `access` | Optional | Passed as `--access` (e.g. `public`/`restricted`). |
+
+No outputs. The token is written to a scoped `.npmrc` under `.moonlit/npm-push/` (owner-only permissions on Unix) and passed via `--userconfig`, keeping it off the process argv; the file is removed again after the run. `npm publish <package> --registry <registry> --tag <tag> [--access …] --userconfig <path>`. A `401`/`403` response maps to an authentication-error failure; a version conflict (`EPUBLISHCONFLICT`/`409`) maps to `"Version already published."`
+
+## test
+
+Run the test script.
+
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `directory` | Optional, default `.` | Directory containing `package.json`. |
+| `script` | Optional, default `test` | The script to run. |
+
+No outputs. `npm run <script>`; any non-zero exit fails with `"Tests failed."`
+
+## Example
 
 ```yaml
+plugins:
+  - name: nodejs
+    url: "oci://registry.moonlitbuild.dev/wolfware/nodejs:1.0.0"
+    config:
+      token: $(NPM_TOKEN)
+    permissions:
+      exec: ["npm"]
+      filesystem: read-write
+
 stages:
   build:
-    - name: test
-      run: npm.run-script
-      config:
-        directory: "./"
-        script: "test"
-    - name: build
-      run: npm.run-script
-      config:
-        directory: "./"
-        script: "build"
-        args: "--production"
-```
-
-### build
-
-The `build` middleware builds a Node.js project without packing it.
-
-#### Inputs
-
-| Name | Type | Required | Default | Description |
-|------|------|----------|---------|-------------|
-| directory | string | Yes | - | The directory containing the package.json file |
-| command | string | No | "build" | The build command to run (typically a script in package.json) |
-
-#### Outputs
-
-| Name | Type | Description |
-|------|------|-------------|
-| output | string | The standard output from the build process |
-
-#### Example
-
-```yaml
-stages:
-  build:
-    - name: build
-      run: npm.build
-      config:
-        directory: "./"
-        command: "build:prod"
-```
-
-### pack
-
-The `pack` middleware builds and packs an NPM package.
-
-#### Inputs
-
-| Name | Type | Required | Default | Description |
-|------|------|----------|---------|-------------|
-| directory | string | Yes | - | The directory containing the package.json file |
-| version | string | No | - | The version to use for the package |
-
-#### Outputs
-
-| Name | Type | Description |
-|------|------|-------------|
-| packagePath | string | The path to the created NPM package file |
-
-#### Example
-
-```yaml
-stages:
-  publish:
-    - name: pack
-      run: npm.pack
-      config:
-        directory: "./"
-        version: $(output:version:nextVersion)
-    - name: nextStep
-      run: some.other-middleware
-      config:
-        packageFile: $(output:pack:packagePath)
-```
-
-### push
-
-The `push` middleware publishes an NPM package to a registry.
-
-#### Inputs
-
-| Name | Type | Required | Default | Description |
-|------|------|----------|---------|-------------|
-| package | string | Yes | - | The path to the NPM package file to publish |
-| registry | string | No | "https://registry.npmjs.org" | The URL of the NPM registry to publish to |
-
-#### Outputs
-
-This middleware does not produce any documented outputs.
-
-| Name | Type | Description |
-|------|------|-------------|
-| *None* | | |
-
-#### Example
-
-```yaml
-stages:
-  publish:
-    - name: pack
-      run: npm.pack
-      config:
-        directory: "./"
-        version: $(output:version:nextVersion)
-    - name: push
-      run: npm.push
-      config:
-        package: $(output:pack:packagePath)
-        registry: "https://registry.npmjs.org"
-```
-
-### install
-
-::: warning Planned Feature
-The `install` middleware is planned for future implementation but is not available in the current version of the NodeJs plugin.
-:::
-
-The `install` middleware will install dependencies for a Node.js project.
-
-#### Planned Inputs
-
-| Name | Type | Required | Default | Description |
-|------|------|----------|---------|-------------|
-| directory | string | Yes | - | The directory containing the package.json file |
-| production | boolean | No | false | Whether to install only production dependencies |
-
-#### Planned Outputs
-
-| Name | Type | Description |
-|------|------|-------------|
-| output | string | The standard output from the installation process |
-
-#### Example (Future Implementation)
-
-```yaml
-stages:
-  setup:
     - name: install
-      run: npm.install
-      config:
-        directory: "./"
-        production: true
-```
-
-## Usage in Pipelines
-
-The NodeJs plugin is commonly used in release pipelines for various Node.js-related tasks:
-
-1. Setting up the environment by installing dependencies
-2. Running tests, linting, and other quality checks
-3. Building Node.js applications or libraries
-4. Running custom scripts defined in package.json
-5. Packing and publishing NPM packages with the correct version number
-6. Executing any Node.js or NPM command as part of your pipeline
-
-### Example: Complete Node.js Build and Release Pipeline
-
-```yaml
-stages:
-  setup:
-    - name: install
-      run: npm.install
+      run: nodejs.install
       config:
         directory: "./my-node-project"
-
-  test:
-    - name: lint
-      run: npm.run-script
-      config:
-        directory: "./my-node-project"
-        script: "lint"
-
     - name: test
-      run: npm.run-script
+      run: nodejs.run-script
       config:
         directory: "./my-node-project"
         script: "test"
-
-  build:
     - name: build
-      run: npm.build
+      run: nodejs.build
       config:
         directory: "./my-node-project"
         command: "build:prod"
 
   publish:
-    - name: version
-      run: sr.calculate-version
-      config:
-        branch: $(output:repo:branch)
-        baseVersion: $(output:tag:name)
-
     - name: pack
-      run: npm.pack
+      run: nodejs.pack
       config:
         directory: "./my-node-project"
         version: $(output:version:nextVersion)
-
     - name: push
-      run: npm.push
+      run: nodejs.push
       config:
         package: $(output:pack:packagePath)
-        registry: "https://registry.npmjs.org"
 ```
-
-These middlewares can be combined with other plugins like Git, GitHub, and Semantic Release to create a complete CI/CD pipeline for your Node.js projects.
-
-## Next Steps
-
-- Learn about the [Git Plugin](./git.md) for Git repository operations
-- Explore the [GitHub Plugin](./github.md) for GitHub API integration
-- See the [Semantic Release Plugin](./semantic-release.md) for semantic versioning
-- See the [Configuration](../guide/concepts/configuration.md) page for more information about configuring plugins

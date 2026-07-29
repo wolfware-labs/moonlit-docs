@@ -1,37 +1,60 @@
+---
+title: Moonlit Plugin
+description: Documentation for the Moonlit plugin in Moonlit
+---
+
 # Moonlit Plugin
 
-The Moonlit plugin is designed for managing Moonlit release files as submodules in the Moonlit release automation system.
+Run nested Moonlit release files — monorepo modules or submodules — by invoking the `moonlit` CLI recursively.
 
-::: warning
-This plugin is currently under development and not fully implemented yet. The core functionality is planned but not available in the current version. The implementation is incomplete with the main middleware method throwing a `NotImplementedException`.
-:::
-
-## Installation
-
-Add the Moonlit plugin to your Moonlit configuration file:
+## Reference
 
 ```yaml
 plugins:
-  - name: "moonlit"
-    url: "nuget://Wolfware.Moonlit.Plugins.Moonlit/1.0.0"
+  - name: moonlit
+    url: "oci://registry.moonlitbuild.dev/wolfware/moonlit:1.0.0"
+    permissions:
+      exec: ["moonlit"]
 ```
 
-## Planned Features
+Moonlit is deny-by-default: a plugin with no `permissions:` block gets zero capabilities — see [Sandboxing](../guide/concepts/sandboxing.md) for the full model. The Moonlit plugin shells out to the `moonlit` binary to run each nested module, so it needs `exec: ["moonlit"]`. No plugin-level config.
 
-The Moonlit plugin is intended to provide the following features:
+## run-modules
 
-- Managing Moonlit release configuration files as submodules
-- Providing utilities for working with Moonlit-specific release processes
-- Simplifying the management of complex Moonlit release pipelines
+Run one or more nested release files, one child `moonlit run` invocation per module.
 
-## Current Status
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `modulePaths` | **Required**, non-empty array | Paths (relative to the working directory) to run. A path ending in `.yml`/`.yaml` (case-insensitive) is treated as a file — its parent directory becomes `-w` and its basename becomes `-f`; any other path is treated as a directory passed as `-w` with no `-f` (the child resolves `release.yml`/`moonlit.yml` itself). |
+| `stages` | Optional array | Each entry forwarded as its own `-s`. |
+| `continueOnModuleError` | Optional, default `false` | When `true`, a failing module doesn't stop the remaining modules. |
+| `arguments` | Optional map | Each entry forwarded as `-a key=value`. |
 
-This plugin is in early development. The implementation is incomplete and using it in production environments is not recommended at this time.
+| Output | Description |
+|---|---|
+| `results` | Array of `{ module, successful, durationMs }`, one entry per module attempted, in `modulePaths` order. |
+| `failedCount` | Number of modules that failed. |
 
-## Future Development
+Each child runs as `moonlit run -w <dir> [-f <file>] --output plain [-s <stage>]* [-a k=v]*`, with its output streamed under the step. Without `continueOnModuleError`, the first failing module stops the middleware and fails the step with `"Module '<path>' failed with exit code <code>."`; with it, every module runs and the step succeeds, reporting the per-module results and `failedCount`.
 
-Future versions of this plugin will include:
+## Example
 
-- Complete implementation of the middleware pipeline
-- Documentation of available commands and configuration options
-- Examples of common use cases
+```yaml
+plugins:
+  - name: moonlit
+    url: "oci://registry.moonlitbuild.dev/wolfware/moonlit:1.0.0"
+    permissions:
+      exec: ["moonlit"]
+
+stages:
+  release:
+    - name: modules
+      run: moonlit.run-modules
+      config:
+        modulePaths:
+          - "services/api/release.yml"
+          - "services/worker/release.yml"
+        continueOnModuleError: true
+        arguments:
+          version: $(output:version:nextVersion)
+```

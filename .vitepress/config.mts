@@ -158,6 +158,7 @@ export default withMermaid({
             { text: 'Overview', link: '/plugins/' },
             { text: 'Git Plugin', link: '/plugins/git' },
             { text: 'GitHub Plugin', link: '/plugins/github' },
+            { text: 'GitLab Plugin', link: '/plugins/gitlab' },
             { text: 'Semantic Release Plugin', link: '/plugins/semantic-release' },
             { text: 'Slack Plugin', link: '/plugins/slack' },
             { text: 'Dotnet Plugin', link: '/plugins/dotnet' },
