@@ -38,6 +38,7 @@ plugins:
       token: $(GITHUB_TOKEN)
     permissions:
       network: ["api.github.com", "*.github.com"]
+      exec: ["git"]
 ```
 
 Then reference its middlewares from pipeline steps as `run: <name>.<middleware>`:

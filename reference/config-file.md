@@ -162,6 +162,7 @@ plugins:
       token: $(GITHUB_TOKEN)
     permissions:
       network: ["api.github.com"]
+      exec: ["git"]
       env: ["GITHUB_*"]
 
   - name: sr

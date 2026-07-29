@@ -17,10 +17,11 @@ plugins:
       token: $(GITHUB_TOKEN)
     permissions:
       network: ["api.github.com", "*.github.com"]
+      exec: ["git", "sh"]
       env: ["GITHUB_*"]
 ```
 
-Moonlit is deny-by-default: a plugin with no `permissions:` block gets zero capabilities — see [Sandboxing](../guide/concepts/sandboxing.md) for the full model. The GitHub plugin calls the REST API, so it needs `network: ["api.github.com", "*.github.com"]`; the `write-variables` middleware also reads the `$GITHUB_OUTPUT`/`$GITHUB_ENV` paths from the environment, so it needs `env: ["GITHUB_*"]`.
+Moonlit is deny-by-default: a plugin with no `permissions:` block gets zero capabilities — see [Sandboxing](../guide/concepts/sandboxing.md) for the full model. The GitHub plugin calls the REST API, so it needs `network: ["api.github.com", "*.github.com"]`; every middleware resolves the owner/repository by shelling out to `git remote get-url origin`, and `write-variables` shells out to `sh` to append to the GitHub Actions output files, so the plugin needs `exec: ["git", "sh"]` — and `write-variables` also reads the `$GITHUB_OUTPUT`/`$GITHUB_ENV` paths from the environment, so it needs `env: ["GITHUB_*"]`.
 
 The plugin-level `token` is required — a blank value fails plugin load with `GitHub token is not configured.` The owner and repository are derived once per run from the `origin` remote's URL and cached; a remote that doesn't point at `github.com` fails with `Not a valid GitHub URL.`
 
@@ -84,6 +85,8 @@ plugins:
       token: $(GITHUB_TOKEN)
     permissions:
       network: ["api.github.com", "*.github.com"]
+      exec: ["git", "sh"]
+      env: ["GITHUB_*"]
 
 stages:
   release:

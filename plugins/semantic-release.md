@@ -45,7 +45,7 @@ Compute the next semantic version from a base version, the commit set, and a bra
 | `baseVersion` | Optional | The version to bump from. Absent means "first release". |
 | `branch` | Optional, default `""` | Matched against `prereleaseMappings` to pick a prerelease label. |
 | `commits` | Optional, e.g. `$(output:conventionalCommits:commits)` | Falls back to the commits produced by a prior `analyze` step in this run. |
-| `prereleaseMappings` | Map of branch → label | Keys may be exact branch names or globs (e.g. `feature/*`); an exact match wins over a glob. An empty label maps to the stable channel. |
+| `prereleaseMappings` | Map of branch → label | Keys may be exact branch names or globs (e.g. `feature/*`); an exact match wins over a glob, and when multiple globs match, the alphabetically-first glob key wins. An empty label maps to the stable channel. |
 | `conventionalCommitRules` | Optional | Overrides the default type-to-bump-level rules. |
 
 Default bump rules: `feat` → minor, `fix`/`perf`/`revert` → patch, everything else → no bump; a breaking commit always bumps major regardless of type. No commit implying a bump leaves the version unchanged.
