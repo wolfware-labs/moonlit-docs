@@ -1,383 +1,185 @@
 ---
-title: Plugin Development Reference
-description: Learn how to create custom plugins for Moonlit
+title: Plugin SDK
+description: Reference for the moonlit-plugin-sdk crate — the Rust SDK for authoring Moonlit plugins
 ---
 
-# Plugin Development Reference
+# Plugin SDK
 
-This page provides detailed information on how to create custom plugins for Moonlit. For a conceptual overview of the plugin system, see the [Plugins System](../guide/concepts/plugins.md) page.
+`moonlit-plugin-sdk` is the Rust crate that turns writing a Moonlit plugin into implementing a
+handful of small, typed structs instead of hand-writing WIT bindings. It generates the
+`moonlit:plugin` component export glue, bridges the host's capability imports into an ergonomic
+`Context`, and handles the JSON-text ↔ typed-value conversion at the ABI boundary described in the
+[WIT Contract](./wit-contract.md).
 
-## Plugin Structure
+This page is a structural reference for the crate — what it's made of, the macro's full syntax,
+and how each piece maps back onto the WIT world. For a guided walkthrough (scaffolding, building,
+inspecting, testing), see [Authoring a Plugin](../guide/advanced/custom-plugins.md). For the
+exhaustive method-by-method API, see the published crate docs on
+[crates.io](https://crates.io/crates/moonlit-plugin-sdk) — this page doesn't embed rustdoc.
 
-A Moonlit plugin is a .NET library packaged as a NuGet package. It consists of:
+## Crates
 
-1. **Startup Class**: The entry point for your plugin
-2. **Middleware Classes**: Components that execute specific tasks in the pipeline
-3. **Service Classes**: Reusable functionality that can be shared between middlewares
-4. **Configuration Classes**: Define the configuration options for your plugin
+| Crate | Role |
+|---|---|
+| `moonlit-plugin-sdk` | The crate a plugin depends on directly: `Context`, `Middleware`, `MiddlewareResult`, capability modules, and the generated WIT bindings. |
+| `moonlit-plugin-sdk-macros` | A proc-macro-only crate providing `moonlit_plugin!`; re-exported through `moonlit-plugin-sdk`'s `prelude`, so plugins never depend on it directly. |
 
-## Creating a Plugin Project
+A plugin crate is a `cdylib` compiled for the `wasm32-wasip2` target (`moonlit plugin build` wraps
+`cargo build --target wasm32-wasip2` and verifies the output is a component, not a core wasm
+module).
 
-To create a new plugin, follow these steps:
+## The `moonlit_plugin!` macro
 
-1. Create a new .NET Class Library project:
+One `moonlit_plugin!` invocation per crate generates the entire WIT `Guest` implementation —
+`describe`, `init`, `list-middlewares`, and `execute` — plus the `export!` call that turns your
+crate into an instantiable component:
 
-```bash
-dotnet new classlib -n MyCompany.Moonlit.Plugins.MyPlugin
+```rust
+moonlit_plugin! {
+    name: "git",
+    config: GitPluginConfig,   // optional: plugin-level config type
+    middlewares: [RepoContext, LatestTag, Commits, Tag, Push],
+    state: GitShared,          // optional: Default-constructed shared state
+}
 ```
 
-2. Add a reference to the Wolfware.Moonlit.Plugins package:
+A real, minimal example from the first-party `git` plugin (`plugins/git/src/lib.rs`):
 
-```bash
-dotnet add package Wolfware.Moonlit.Plugins
+```rust
+use moonlit_plugin_sdk::prelude::*;
+
+moonlit_plugin! {
+    name: "git",
+    state: GitShared,
+    middlewares: [RepoContext, LatestTag, Commits, Tag, Push],
+}
 ```
 
-3. Create a startup class that implements `IPluginStartup` or inherits from `PluginStartup`.
+### Fields
 
-## Plugin Startup Class
+| Field | Required | Type | Effect |
+|---|---|---|---|
+| `name` | yes | string literal | The plugin's `describe`/`init` metadata name. `version` and `description` are read automatically from `CARGO_PKG_VERSION`/`CARGO_PKG_DESCRIPTION`. |
+| `middlewares` | yes | `[Type, ...]` | Every `Middleware`-implementing type this plugin exports. Generates the `list-middlewares` table and the `execute` dispatch arm for each. |
+| `config` | no | a type implementing `PluginConfig` | Plugin-level config, decoded and validated once in `init` from the YAML `plugins[].config` block, then reachable from any middleware via `ctx.plugin_config::<T>()`. |
+| `state` | no | a `Default` type | Shared, `Default`-constructed state held for the whole component instance's lifetime (one instance per pipeline run — see [Plugin System Architecture](./plugin-system.md)), reachable via `ctx.state::<T>()`. |
 
-The startup class is the entry point for your plugin. It must implement the `IPluginStartup` interface or inherit from the `PluginStartup` class.
+### Generated dispatch
 
-```csharp
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Wolfware.Moonlit.Plugins;
+For `execute`, the macro matches the incoming middleware name against each declared type's
+`Middleware::NAME`, deserializes the step's JSON config into that middleware's `Config` type
+(coercing scalars per the same rules used for pipeline config binding), and calls
+`Middleware::execute`. An unrecognized middleware name returns a `middleware-result` failure
+naming it — this path is unreachable in practice because `list-middlewares` is validated against
+every `run:` reference at pipeline build time.
 
-namespace MyCompany.Moonlit.Plugins.MyPlugin
-{
-    public sealed class MyPluginStartup : PluginStartup
-    {
-        protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
-        {
-            // Register services
-            services.AddSingleton<IMyService, MyService>();
-        }
+For `init`, when a `config:` type is declared the macro decodes it, calls
+`PluginConfig::validate`, and stores it in a `OnceLock`; an `Err` from either step aborts `init`
+with that message (or an `"invalid plugin config: …"` wrapper for a decode failure).
 
-        protected override void AddMiddlewares(IServiceCollection services)
-        {
-            // Register middlewares with names
-            services.AddMiddleware<MyMiddleware>("my-middleware");
-        }
+## The `Middleware` trait
+
+Every entry in a plugin's `middlewares:` list implements this trait (from `sdk/src/middleware.rs`):
+
+```rust
+pub trait Middleware: Default {
+    const NAME: &'static str;
+    const DESCRIPTION: &'static str = "";
+    type Config: serde::de::DeserializeOwned + Default;
+    fn execute(&self, ctx: &Context, cfg: Self::Config) -> MiddlewareResult;
+}
+```
+
+- **`NAME`** — the identifier used after the `.` in a step's `run:` reference (e.g. `git.tag`).
+- **`DESCRIPTION`** — shown by `moonlit plugin inspect` and `list-middlewares`.
+- **`Config`** — must implement `Default` so a step that omits `config:` entirely still binds.
+- **`execute`** — the middleware body; return a `MiddlewareResult`.
+
+## `Context` — the host bridge
+
+`Context` (`sdk/src/context.rs`) is the SDK's ergonomic wrapper over the `moonlit:plugin/host` and
+`moonlit:plugin/process` imports, plus the WASI imports the world pulls in. It's the one thing
+every `Middleware::execute` receives:
+
+| Method | Maps to |
+|---|---|
+| `ctx.log_debug/info/warn/error(msg)` | `moonlit:plugin/host.log` |
+| `ctx.progress(msg)` | `moonlit:plugin/host.report-progress` |
+| `ctx.get_config(path)` / `ctx.get_config_as::<T>(path)` | `moonlit:plugin/host.get-config`, JSON-decoded (and coerced for the `_as` variant) |
+| `ctx.working_dir()` / `ctx.step_name()` | fields of the WIT `release-context` passed into `execute` |
+| `ctx.command(program)` | builds a `moonlit:plugin/process` `command`; see `sdk::process` below |
+| `ctx.http()` | a blocking client over `wasi:http/outgoing-handler` |
+| `ctx.env()` | `wasi:cli/environment`, filtered by the plugin's `env` permission grant |
+| `ctx.clock()` | `wasi:clocks/monotonic-clock` |
+| `ctx.random()` | `wasi:random/random` |
+| `ctx.state::<T>()` | the `state:` type declared in `moonlit_plugin!`; panics if none was declared |
+| `ctx.plugin_config::<T>()` | the `config:` type declared in `moonlit_plugin!`; panics if none was declared |
+
+The `Host` trait that `Context` is generic over abstracts these calls so the exact same middleware
+code runs against the real host (`RealHost`, `wasm32` only) or a `MockHost` in native unit tests —
+see `sdk::testing`.
+
+## `MiddlewareResult` and `Output`
+
+Builders on `MiddlewareResult` (`sdk/src/result.rs`) construct the WIT `middleware-result` record:
+
+```rust
+MiddlewareResult::success()
+MiddlewareResult::success_with(|out| {
+    out.set("tag", "v1.2.3");   // serializes to a json-value; keys become output:<step>:<key>
+})
+MiddlewareResult::failure("something went wrong")
+result.with_warning("proceeding anyway")   // chainable onto success or failure
+```
+
+`Output::set` serializes each value to JSON text via `serde::Serialize`; a serialization failure
+for any single key degrades the *whole* result to a failure naming that key, rather than silently
+dropping the value.
+
+## `PluginConfig`
+
+An optional trait (`sdk/src/plugin_config.rs`) for semantic validation of a plugin-level `config:`
+block beyond what `serde` deserialization already enforces:
+
+```rust
+pub trait PluginConfig {
+    fn validate(&self) -> Result<(), String> {
+        Ok(())   // default: accept everything
     }
 }
 ```
 
-### ConfigurePlugin Method
-
-The `ConfigurePlugin` method is where you register your services with the dependency injection container. This method is called when the plugin is loaded.
-
-```csharp
-protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
-{
-    // Register services
-    services.AddSingleton<IMyService, MyService>();
-
-    // Bind configuration
-    services.Configure<MyPluginOptions>(configuration);
-}
-```
-
-### AddMiddlewares Method
-
-The `AddMiddlewares` method is where you register your middlewares with the dependency injection container. This method is called after `ConfigurePlugin`.
-
-```csharp
-protected override void AddMiddlewares(IServiceCollection services)
-{
-    // Register middlewares with names
-    services.AddMiddleware<MyMiddleware>("my-middleware");
-    services.AddMiddleware<AnotherMiddleware>("another-middleware");
-}
-```
-
-## Creating Middlewares
-
-Middlewares are the components that execute specific tasks in the pipeline. Each middleware should:
-
-1. Implement the `IReleaseMiddleware` interface
-2. Accept dependencies through constructor injection
-3. Implement the `ExecuteAsync` method
-
-```csharp
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Wolfware.Moonlit.Plugins;
-
-namespace MyCompany.Moonlit.Plugins.MyPlugin
-{
-    public class MyMiddleware : IReleaseMiddleware
-    {
-        private readonly ILogger<MyMiddleware> _logger;
-        private readonly IMyService _myService;
-
-        public MyMiddleware(ILogger<MyMiddleware> logger, IMyService myService)
-        {
-            _logger = logger;
-            _myService = myService;
-        }
-
-        public async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
-        {
-            _logger.LogInformation("Executing MyMiddleware");
-
-            // Get configuration from parameter
-            var config = configuration.Get<MyMiddlewareConfig>();
-
-            // Execute middleware logic
-            var result = await _myService.DoSomethingAsync(config.SomeOption);
-
-            // Return success with output
-            return MiddlewareResult.Success(output =>
-            {
-                output.Add("result", result);
-            });
-        }
-    }
-}
-```
-
-### Release Context
-
-The `ReleaseContext` provides access to:
-
-- Configuration for the current step
-- Output from previous steps
-- Methods to add output for subsequent steps
-
-```csharp
-// Get configuration from parameter
-var config = configuration.Get<MyMiddlewareConfig>();
-
-// Get output from previous steps
-var previousOutput = context.GetOutput<string>("previousStep", "outputName");
-
-// Add output for subsequent steps
-context.AddOutput("outputName", "outputValue");
-```
-
-### Middleware Result
-
-The `MiddlewareResult` class represents the result of a middleware execution and provides information about its success or failure, along with any output or warnings:
-
-```csharp
-// Return success without output
-return MiddlewareResult.Success();
-
-// Return success with output
-return MiddlewareResult.Success(output => 
-{
-    output.Add("key", "value");
-});
-
-// Return failure with error message
-return MiddlewareResult.Failure("Something went wrong");
-
-// Return success with a warning
-return MiddlewareResult.Warning("This is a warning");
-
-// Return success with a warning and output
-return MiddlewareResult.Warning("This is a warning", output => 
-{
-    output.Add("key", "value");
-});
-```
-
-## Configuration Classes
-
-Configuration classes define the options for your plugin and middlewares. They should be simple POCO classes:
-
-```csharp
-namespace MyCompany.Moonlit.Plugins.MyPlugin
-{
-    public class MyPluginOptions
-    {
-        public string GlobalOption { get; set; }
-    }
-
-    public class MyMiddlewareConfig
-    {
-        public string SomeOption { get; set; }
-        public int AnotherOption { get; set; }
-    }
-}
-```
-
-## Service Classes
-
-Service classes provide reusable functionality that can be shared between middlewares:
-
-```csharp
-using System.Threading.Tasks;
-
-namespace MyCompany.Moonlit.Plugins.MyPlugin
-{
-    public interface IMyService
-    {
-        Task<string> DoSomethingAsync(string input);
-    }
-
-    public class MyService : IMyService
-    {
-        public async Task<string> DoSomethingAsync(string input)
-        {
-            // Implement service logic
-            return $"Processed: {input}";
-        }
-    }
-}
-```
-
-## Packaging as a NuGet Package
-
-To package your plugin as a NuGet package:
-
-1. Add package metadata to your project file:
-
-```xml
-<PropertyGroup>
-    <PackageId>MyCompany.Moonlit.Plugins.MyPlugin</PackageId>
-    <Version>1.0.0</Version>
-    <Authors>Your Name</Authors>
-    <Description>My custom plugin for Moonlit</Description>
-</PropertyGroup>
-```
-
-2. Create the NuGet package:
-
-```bash
-dotnet pack -c Release
-```
-
-3. Publish the package to a NuGet repository:
-
-```bash
-dotnet nuget push bin/Release/MyCompany.Moonlit.Plugins.MyPlugin.1.0.0.nupkg --source https://api.nuget.org/v3/index.json --api-key YOUR_API_KEY
-```
-
-## Using Your Plugin
-
-To use your plugin in a Moonlit pipeline, add it to the `plugins` section of your configuration file:
-
-```yaml
-plugins:
-  - name: "myplugin"
-    url: "nuget://MyCompany.Moonlit.Plugins.MyPlugin/1.0.0"
-    config:
-      globalOption: "value"
-
-stages:
-  mystage:
-    - name: mystep
-      run: myplugin.my-middleware
-      config:
-        someOption: "value"
-        anotherOption: 42
-```
-
-## Best Practices
-
-- Keep your plugin focused on a specific domain or integration
-- Use dependency injection for all services
-- Implement proper error handling in your middlewares
-- Add detailed logging to help diagnose issues
-- Document your plugin's configuration options
-- Write unit tests for your plugin
-- Follow semantic versioning for your plugin releases
-
-## Example: Complete Plugin
-
-Here's a complete example of a simple plugin that provides a middleware to generate a random number:
-
-```csharp
-// RandomPluginStartup.cs
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Wolfware.Moonlit.Plugins;
-
-namespace MyCompany.Moonlit.Plugins.Random
-{
-    public sealed class RandomPluginStartup : PluginStartup
-    {
-        protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
-        {
-            services.AddSingleton<IRandomService, RandomService>();
-        }
-
-        protected override void AddMiddlewares(IServiceCollection services)
-        {
-            services.AddMiddleware<GenerateRandomNumberMiddleware>("generate");
-        }
-    }
-}
-
-// IRandomService.cs
-using System;
-
-namespace MyCompany.Moonlit.Plugins.Random
-{
-    public interface IRandomService
-    {
-        int GenerateNumber(int min, int max);
-    }
-
-    public class RandomService : IRandomService
-    {
-        private readonly System.Random _random = new System.Random();
-
-        public int GenerateNumber(int min, int max)
-        {
-            return _random.Next(min, max + 1);
-        }
-    }
-}
-
-// GenerateRandomNumberMiddleware.cs
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Wolfware.Moonlit.Plugins;
-
-namespace MyCompany.Moonlit.Plugins.Random
-{
-    public class GenerateRandomNumberConfig
-    {
-        public int Min { get; set; } = 1;
-        public int Max { get; set; } = 100;
-    }
-
-    public class GenerateRandomNumberMiddleware : IReleaseMiddleware
-    {
-        private readonly ILogger<GenerateRandomNumberMiddleware> _logger;
-        private readonly IRandomService _randomService;
-
-        public GenerateRandomNumberMiddleware(
-            ILogger<GenerateRandomNumberMiddleware> logger,
-            IRandomService randomService)
-        {
-            _logger = logger;
-            _randomService = randomService;
-        }
-
-        public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
-        {
-            _logger.LogInformation("Generating random number");
-
-            var config = configuration.Get<GenerateRandomNumberConfig>();
-
-            var number = _randomService.GenerateNumber(config.Min, config.Max);
-
-            _logger.LogInformation($"Generated random number: {number}");
-
-            return Task.FromResult(MiddlewareResult.Success(output =>
-            {
-                output.Add("number", number);
-            }));
-        }
-    }
-}
-```
-
-## Next Steps
-
-- Learn about [Moonlit's architecture](../guide/concepts/how-it-works.md)
-- Explore the [configuration file structure](./config-file.md)
-- See [examples](../plugins/examples/nuget-release.md) of complete pipelines
+`moonlit_plugin!` calls `validate` right after decoding `config:` in `init`; the returned message
+surfaces verbatim as the `init` error (unlike a decode failure, which gets an
+`"invalid plugin config: …"` wrapper).
+
+## Capability modules
+
+Beyond `Context`'s direct methods, the SDK ships small modules for common needs:
+
+| Module | Purpose |
+|---|---|
+| `sdk::process` | A safe wrapper over `moonlit:plugin/process`, plus `LineHandler` — a standard severity heuristic (`"error"`/`"failed"` → error, `"warning"` → warn, else info) shared by the docker/dotnet/nodejs plugins for classifying subprocess output lines. |
+| `sdk::http` | A small blocking client over `wasi:http`: `get`/`post`/`put`, bearer auth, JSON via `serde`, per-request timeout. |
+| `sdk::env` | Environment variable access routed through `get-config`, so permission filtering applies uniformly. |
+| `sdk::clock` | `wasi:clocks/monotonic-clock` access. |
+| `sdk::random` | `wasi:random/random` access. |
+| `sdk::config` | The coercing JSON deserializer (`from_json_value`) used for both plugin- and step-level config binding. |
+| `sdk::changelog` | Conventional-commit changelog helpers shared by the `semantic-release`-style plugins. |
+| `sdk::testing` | Runs a `Middleware` natively against a `MockHost` — no wasm build required for unit tests. |
+
+## Prelude
+
+`use moonlit_plugin_sdk::prelude::*;` brings in `moonlit_plugin!`, `Context`, `LogLevel`,
+`Middleware`, `MiddlewareResult`, `Output`, `PluginConfig`, `Shared` (from `sdk::state`),
+`LineHandler` (from `sdk::process`), `from_json_value` (from `sdk::config`), and `serde::Deserialize`
+— everything a typical plugin crate needs in scope.
+
+## See also
+
+- [WIT Contract](./wit-contract.md) — the ABI this crate compiles down to.
+- [Authoring a Plugin](../guide/advanced/custom-plugins.md) — scaffolding, building, testing, and
+  inspecting a plugin end to end.
+- [Publishing a Plugin](../guide/advanced/publishing-plugins.md) — pushing a built component to an
+  OCI registry.
+- [`moonlit-plugin-sdk` on crates.io](https://crates.io/crates/moonlit-plugin-sdk) for the full API.

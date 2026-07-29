@@ -139,8 +139,8 @@ export default withMermaid({
         {
           text: 'API',
           items: [
-            { text: 'Core API', link: '/reference/core-api' },
-            { text: 'Plugin Development', link: '/reference/plugin-development' },
+            { text: 'WIT Contract', link: '/reference/wit-contract' },
+            { text: 'Plugin SDK', link: '/reference/plugin-development' },
             { text: 'Plugin System Architecture', link: '/reference/plugin-system' }
           ]
         },

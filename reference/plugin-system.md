@@ -1,294 +1,141 @@
 ---
 title: Plugin System Architecture
-description: Detailed reference for Moonlit's plugin system architecture
+description: How Moonlit resolves, caches, sandboxes, and instantiates WebAssembly component plugins
 ---
 
 # Plugin System Architecture
 
-This page provides a detailed reference for Moonlit's plugin system architecture. It explains how plugins are structured, loaded, and integrated into the Moonlit pipeline.
+This page describes how the engine turns a `plugins:` entry in a pipeline YAML file into a running,
+sandboxed WebAssembly component: source resolution, the on-disk content cache, the OCI pull
+sequence, and how capability enforcement is wired at the host boundary. For the ABI itself, see the
+[WIT Contract](./wit-contract.md); for the YAML-facing permissions model, see
+[Sandboxing](../guide/concepts/sandboxing.md).
 
-## Plugin Structure
+## The component model, briefly
 
-A Moonlit plugin is a NuGet package that contains:
+Every plugin is a `wasm32-wasip2` WebAssembly **component** — WASI Preview 2, component model, not
+a core wasm module. The engine hosts components with [`wasmtime`](https://wasmtime.dev/), using
+`wasmtime-wasi` for the standard WASI imports and `wasmtime-wasi-http` for outgoing HTTP. Each
+plugin gets **one component instance per pipeline run**, created when the pipeline loads and kept
+alive until it finishes. This is deliberate: it lets a plugin hold in-memory state across its
+middlewares within a run — `git.latest-tag` can stash a resolved tag that `git.commits` reads
+later — without any host-side session machinery.
 
-1. **Startup Class**: Implements `IPluginStartup` or inherits from `PluginStartup`
-2. **Middleware Classes**: Implement specific functionality for pipeline steps
-3. **Service Classes**: Provide shared functionality
-4. **Configuration Classes**: Define the configuration options for the plugin
+## Resolving a plugin source
 
-### Plugin Package Structure
+Each `plugins[].url` is parsed into a `PluginSource` by scheme (`engine/src/resolve/mod.rs`):
 
-A typical plugin package has the following structure:
-
-```
-MyCompany.Moonlit.Plugins.MyPlugin.nupkg
-├── lib
-│   └── net9.0
-│       └── MyCompany.Moonlit.Plugins.MyPlugin.dll
-├── MyCompany.Moonlit.Plugins.MyPlugin.nuspec
-└── [Content_Files]
-```
-
-The main assembly (`MyCompany.Moonlit.Plugins.MyPlugin.dll`) contains all the code for the plugin, including the startup class, middlewares, services, and configuration classes.
-
-## Plugin Loading Process
-
-When Moonlit starts, it follows these steps to load plugins:
-
-1. **Parse Plugin Definitions**: Read the plugin entries from the configuration file
-2. **Resolve NuGet Packages**: Download and extract the specified NuGet packages
-3. **Load Assemblies**: Load the plugin assemblies into the application domain
-4. **Find Startup Classes**: Locate classes that implement `IPluginStartup`
-5. **Initialize Plugins**: Call the startup methods to register services and middlewares
-6. **Configure Plugins**: Apply the configuration from the YAML file
-
-### Plugin Resolution
-
-Plugins are resolved using the NuGet package manager. The plugin URL in the configuration file specifies the package ID and version:
-
-```yaml
-plugins:
-  - name: "myplugin"
-    url: "nuget://mycompany/MyCompany.Moonlit.Plugins.MyPlugin/1.0.0"
-```
-
-Moonlit uses the NuGet client API to download and extract the package from the configured NuGet sources.
-
-### Assembly Loading
-
-Once the NuGet package is downloaded and extracted, Moonlit loads the plugin assembly into the application domain using reflection:
-
-```csharp
-var assembly = Assembly.LoadFrom(assemblyPath);
-```
-
-### Startup Class Discovery
-
-Moonlit uses reflection to find classes that implement the `IPluginStartup` interface:
-
-```csharp
-var startupTypes = assembly.GetTypes()
-    .Where(t => typeof(IPluginStartup).IsAssignableFrom(t) && !t.IsAbstract)
-    .ToList();
-```
-
-If multiple startup classes are found in a single assembly, Moonlit will use the first one.
-
-### Plugin Initialization
-
-Moonlit creates an instance of the startup class and calls its `Configure` method:
-
-```csharp
-var startup = (IPluginStartup)Activator.CreateInstance(startupType);
-startup.Configure(services, configuration);
-```
-
-The `Configure` method is responsible for registering the plugin's services and middlewares with the dependency injection container.
-
-## Plugin Registration
-
-Plugins are registered in the Moonlit configuration file under the `plugins` section:
-
-```yaml
-plugins:
-  - name: "git"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0"
-  - name: "gh"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0"
-    config:
-      token: $(GITHUB_TOKEN)
-```
-
-Each plugin entry includes:
-
-- **name**: A unique identifier for the plugin
-- **url**: The NuGet package URL
-- **config** (optional): Configuration settings for the plugin
-
-## Plugin Configuration
-
-Plugins can be configured at two levels:
-
-1. **Global Configuration**: Applied to the entire plugin
-2. **Step Configuration**: Applied to a specific step
-
-### Global Configuration
-
-Global configuration is specified in the plugin definition:
-
-```yaml
-plugins:
-  - name: "gh"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0"
-    config:
-      token: $(GITHUB_TOKEN)
-```
-
-This configuration is passed to the plugin's startup class during initialization.
-
-### Step Configuration
-
-Step configuration is specified in the step definition:
-
-```yaml
-stages:
-  analyze:
-    - name: tag
-      run: gh.latest-tag
-      config:
-        prefix: "v"
-```
-
-This configuration is passed to the middleware when it's executed.
-
-## Middleware Registration
-
-Middlewares are registered in the plugin's startup class:
-
-```csharp
-protected override void AddMiddlewares(IServiceCollection services)
-{
-    services.AddMiddleware<GetLatestTag>("latest-tag");
-    services.AddMiddleware<GetItemsSinceCommit>("items-since-commit");
-    services.AddMiddleware<CreateRelease>("create-release");
+```rust
+pub enum PluginSource {
+    Oci(String),    // host/namespace/name:tag or ...@sha256:...
+    File(PathBuf),  // absolute local path to a component file
+    Http(String),   // full http/https URL to a component file
 }
 ```
 
-The `AddMiddleware` extension method registers a middleware with a specific name. This name is used to reference the middleware in the pipeline configuration.
+- `oci://…` — the default distribution path; resolved against a registry (below).
+- `file:///abs/path/plugin.wasm` — a direct local path, used for the plugin dev loop. Not cached:
+  the file is validated and its path returned as-is, so rebuilding the `.wasm` and re-running picks
+  up the change immediately.
+- `http(s)://…/plugin.wasm` — downloaded and cached by a hash of the URL.
+- Any other scheme is an `UnsupportedScheme` error naming the supported schemes; a URL with no
+  scheme at all is an `InvalidReference` error.
 
-## Middleware Execution
+Resolution never instantiates a component — it only produces a verified path to component bytes on
+disk, plus provenance (a content digest for OCI sources, whether the result came from cache). All
+declared plugins resolve **in parallel**; the first resolution failure aborts pipeline load with a
+plugin-load diagnostic (exit code 3).
 
-When a step in the pipeline is executed, Moonlit:
+## The content cache
 
-1. **Resolves the Middleware**: Looks up the middleware by name
-2. **Creates an Instance**: Uses the dependency injection container to create an instance of the middleware
-3. **Prepares the Context**: Creates a context object with the current state
-4. **Executes the Middleware**: Calls the middleware's `ExecuteAsync` method
-5. **Processes the Result**: Handles success, failure, or warnings
+Resolved plugins live under a single OS-appropriate cache root (`~/.cache/moonlit` on Linux/XDG,
+the platform equivalent on macOS/Windows), laid out as:
 
-### Middleware Resolution
-
-Middlewares are resolved using the format `pluginName.middlewareName`:
-
-```yaml
-run: gh.latest-tag
+```
+<cache-root>/moonlit/
+├── oci/sha256/<hex>        # OCI layer blobs, content-addressed by digest
+├── plugins/<key>/          # a resolved plugin: plugin.wasm + meta.json
+│   ├── plugin.wasm
+│   └── meta.json
+└── refs/<hash>.json        # OCI tag -> digest resolution, with a timestamp for the TTL
 ```
 
-Moonlit looks up the plugin by name (`gh`) and then looks up the middleware by name (`latest-tag`) within that plugin.
+`plugins/` is keyed by the OCI manifest digest for `oci://` sources, or `sha256(url)` for `http(s)://`
+sources — `file://` sources are never cached. `meta.json` records the source reference, digest,
+size, pulled-at timestamp, and (when the artifact declares it) the plugin's middleware names, so
+`moonlit plugin inspect` and cache-listing commands don't need to re-instantiate a component to
+describe what's cached.
 
-### Middleware Instantiation
+## OCI resolution and pull
 
-Middlewares are instantiated using the dependency injection container:
+`oci://` is the default and recommended distribution scheme, following the CNCF Wasm OCI Artifact
+convention (interoperable with `wkg`/`wasm-pkg-tools` and ORAS): `artifactType`
+`application/vnd.wasm.component.v1+wasm`, a config blob of media type
+`application/vnd.wasm.config.v0+json` carrying a `moonlit` extension block (world, middleware
+names, SDK version), and a single component-bytes layer of media type `application/wasm`.
 
-```csharp
-var middleware = serviceProvider.GetRequiredService<TMiddleware>();
-```
+Resolution proceeds:
 
-This allows middlewares to receive dependencies through constructor injection.
+1. Parse the reference (`host[:port]/namespace/name:tag` or `...@sha256:<digest>`).
+2. **Cache check first.** A digest-pinned reference that's already cached skips the network
+   entirely. A tag reference checks `refs/<hash>.json` for a digest resolved within the last 15
+   minutes; within that TTL, it also skips the network. `--offline` on `moonlit run` turns any cache
+   miss into a hard failure instead of pulling.
+3. On a cache miss, pull the manifest (accepting both OCI image manifests and artifact manifests)
+   and verify its `artifactType`/media types match the Moonlit plugin convention above.
+4. Pull the single component layer, verifying its content digest against the manifest.
+5. Store the blob at `oci/sha256/<digest>`, materialize it at `plugins/<digest>/plugin.wasm`, and
+   write `meta.json` with the source reference, digest, size, and pulled-at timestamp.
 
-### Context Preparation
+Authentication follows Docker-style credential resolution: `~/.docker/config.json` first (so a
+Docker-authenticated registry already works with no separate step), then Moonlit's own
+`~/.config/moonlit/credentials.toml`, written by `moonlit login <registry>`.
 
-Before executing a middleware, Moonlit prepares a context object with the current state:
+## Capability enforcement at the host boundary
 
-```csharp
-var context = new ReleaseContext
-{
-    CancellationToken = cancellationToken,
-    WorkingDirectory = workingDirectory
-};
-```
+A resolved, cached component is instantiated with **no ambient access** — every capability it can
+reach is one the engine explicitly wires into that instance's `Linker`, gated by the plugin's
+`permissions` grant (omitted entirely ⇒ every grant defaults to empty/`none`). Enforcement lives at
+four points, each implemented at the boundary where the corresponding WASI or `moonlit:plugin`
+import is satisfied:
 
-### Middleware Execution
+| Grant | Enforced in | Mechanism |
+|---|---|---|
+| `network` | `engine/src/host/net.rs` (`AllowlistHooks`) | Wraps `wasi:http/outgoing-handler`'s `send_request` hook; the request's authority is matched against a `GlobSet` built from `permissions.network`. A miss is denied and logged as a warning naming the blocked host and the `permissions` key to add — the request never leaves the sandbox. |
+| `exec` | `engine/src/host/imports.rs` (`ProcessHost::spawn`/`run`) | The `moonlit:plugin/process` implementation checks `cmd.program` against a `GlobSet` built from `permissions.exec` before spawning anything; a miss is denied and logged the same way. |
+| `env` | `engine/src/host/perms.rs` (`filter_env`) | The process env snapshot is glob-filtered against `permissions.env` *before* it's handed to `WasiCtxBuilder`, so non-matching variables are never visible inside the sandbox, not merely hidden by convention. |
+| `filesystem` | `engine/src/host/perms.rs` (`filesystem_perms`) | Maps the `none \| read-only \| read-write` grant to WASI `DirPerms`/`FilePerms` and either preopens the working directory or skips the preopen entirely for `none` — a denied plugin has no filesystem handle to use, regardless of what it requests. |
 
-Moonlit calls the middleware's `ExecuteAsync` method with the context and configuration:
+All four are wired together in `PluginInstance::instantiate` (`engine/src/host/mod.rs`), which
+builds the `Linker` (WASI p2 + WASI-HTTP + `moonlit:plugin/host` + `moonlit:plugin/process`),
+constructs the per-instance `WasiCtx` via the permission mappings above, and instantiates the
+component against it. Nothing about this differs by plugin source — an `oci://`, `file://`, or
+`http(s)://`-resolved component goes through the identical sandboxing path.
 
-```csharp
-var result = await middleware.ExecuteAsync(context, configuration);
-```
+## Instance lifecycle
 
-### Result Processing
+Once instantiated, a `PluginInstance` is driven through the WIT exports in a fixed order for the
+life of the pipeline run:
 
-Moonlit processes the result of the middleware execution:
+1. **`describe`** — read once by `moonlit plugin inspect`; static metadata, no config needed.
+2. **`init`**  — called once, immediately after instantiation, with the plugin's `config:` block.
+   An `Err` here is a load-time failure (exit code 3).
+3. **`list-middlewares`** — read at pipeline *build* time (before any step runs) to validate every
+   step's `run:` reference; an unresolvable plugin or middleware name fails fast (exit code 2).
+4. **`execute`** — called once per step that targets this plugin, in step order, for the rest of
+   the run.
 
-```csharp
-if (result.IsSuccessful)
-{
-    // Process output
-    foreach (var output in result.Output.ToDictionary(stepName))
-    {
-        outputs[output.Key] = output.Value;
-    }
+Because one instance is kept alive for the whole run (see above), a trap inside a plugin poisons
+that plugin's `wasmtime` `Store` for the remainder of the run — the store, not just the failed
+call, becomes permanently unusable. `continueOnError` still lets the *pipeline* continue past a
+trapped step, but any later step against the *same* plugin fails fast rather than silently
+re-instantiating (which would discard the plugin's in-memory shared state from earlier steps).
 
-    // Process warnings
-    foreach (var warning in result.Warnings)
-    {
-        logger.LogWarning(warning);
-    }
-}
-else
-{
-    // Handle failure
-    logger.LogError(result.ErrorMessage);
-    
-    if (!continueOnError)
-    {
-        throw new PipelineExecutionException(result.ErrorMessage);
-    }
-}
-```
+## See also
 
-## Plugin Dependencies
-
-Plugins can depend on other plugins or external libraries. These dependencies are specified in the plugin's NuGet package:
-
-```xml
-<dependencies>
-  <group targetFramework="net9.0">
-    <dependency id="Wolfware.Moonlit.Plugins" version="1.0.0" />
-    <dependency id="Octokit" version="0.50.0" />
-  </group>
-</dependencies>
-```
-
-When Moonlit loads a plugin, it also loads all of its dependencies.
-
-## Plugin Isolation
-
-Plugins are loaded into the same application domain as Moonlit, but they are isolated in terms of configuration and services:
-
-1. **Configuration Isolation**: Each plugin has its own configuration section
-2. **Service Isolation**: Services registered by a plugin are only available to that plugin
-
-However, plugins can share data through the pipeline context.
-
-## Best Practices
-
-### Plugin Naming
-
-Follow a consistent naming convention for your plugins:
-
-- **Package ID**: `MyCompany.Moonlit.Plugins.MyPlugin`
-- **Assembly Name**: `MyCompany.Moonlit.Plugins.MyPlugin`
-- **Namespace**: `MyCompany.Moonlit.Plugins.MyPlugin`
-
-### Plugin Versioning
-
-Use semantic versioning for your plugins:
-
-- **Major Version**: Breaking changes
-- **Minor Version**: New features, non-breaking changes
-- **Patch Version**: Bug fixes
-
-### Plugin Documentation
-
-Document your plugin thoroughly:
-
-- **README**: Provide an overview of the plugin
-- **XML Comments**: Add XML documentation comments to your code
-- **Examples**: Include examples of how to use the plugin
-
-## Next Steps
-
-- Learn about [plugin development](./plugin-development.md)
-- Explore the [core API reference](./core-api.md)
-- See the [configuration file reference](./config-file.md)
+- [WIT Contract](./wit-contract.md) — the exact interfaces and types this host implements.
+- [Plugin SDK](./plugin-development.md) — the Rust SDK plugins are built against.
+- [Sandboxing](../guide/concepts/sandboxing.md) — the `permissions` YAML block from the pipeline
+  author's point of view.
+- [Publishing a Plugin](../guide/advanced/publishing-plugins.md) — pushing a component to an OCI
+  registry so it can be pulled via `oci://`.

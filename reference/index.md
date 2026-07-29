@@ -18,8 +18,9 @@ The reference documentation is organized into the following sections:
 
 ### API
 
-- [Core API](./core-api.md) - Reference for Moonlit's core API classes and interfaces
-- [Plugin Development](./plugin-development.md) - Detailed guide for developing custom plugins
+- [WIT Contract](./wit-contract.md) - Reference for the `moonlit:plugin` WIT world plugins are built against
+- [Plugin SDK](./plugin-development.md) - Reference for the Rust SDK used to author plugins
+- [Plugin System Architecture](./plugin-system.md) - How plugins are resolved, cached, and sandboxed
 
 ## How to Use the Reference
 
