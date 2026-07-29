@@ -61,7 +61,6 @@ plugins:
     url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
     permissions:
       exec: ["git"]
-      filesystem: read-write
 
   - name: gh
     url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
@@ -79,7 +78,7 @@ plugins:
       filesystem: read-write
 ```
 
-`git` can shell out to the `git` binary and read/write the working directory, but has no network access. `gh` can talk to GitHub's API and upload hosts, read `GITHUB_`-prefixed environment variables, and spawn `git` to resolve the repository from the `origin` remote, but has no filesystem access of its own. `dotnet` can run the `dotnet` CLI and read/write the working directory, but has no network access and can't read any environment variables. Each plugin's blast radius is exactly what its job requires.
+`git` can shell out to the `git` binary, but that's the only access it needs — the spawned `git` process operates on the working directory as a normal OS process, independent of the plugin's own WASI preopen, so the plugin itself has no filesystem grant. `gh` can talk to GitHub's API and upload hosts, read `GITHUB_`-prefixed environment variables, and spawn `git` to resolve the repository from the `origin` remote, but has no filesystem access of its own. `dotnet` can run the `dotnet` CLI and read/write the working directory, but has no network access and can't read any environment variables. Each plugin's blast radius is exactly what its job requires.
 
 ## Why This Matters
 

@@ -154,7 +154,6 @@ plugins:
     url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
     permissions:
       exec: ["git"]
-      filesystem: read-write
 
   - name: gh
     url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"

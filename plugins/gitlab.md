@@ -21,7 +21,7 @@ plugins:
       filesystem: read-write
 ```
 
-Moonlit is deny-by-default: a plugin with no `permissions:` block gets zero capabilities — see [Sandboxing](../guide/concepts/sandboxing.md) for the full model. The GitLab plugin calls the GitLab REST API, so it needs `network: ["gitlab.com"]` (or the host of a self-hosted `baseUrl` — see below); every middleware resolves the project by shelling out to `git remote get-url origin`, so it needs `exec: ["git"]`; and `write-variables` appends directly to a file in the working directory, so it needs `filesystem: read-write`.
+Moonlit is deny-by-default: a plugin with no `permissions:` block gets zero capabilities — see [Sandboxing](../guide/concepts/sandboxing.md) for the full model. The GitLab plugin calls the GitLab REST API, so it needs `network: ["gitlab.com"]` (or the host of a self-hosted `baseUrl` — see below); the `related-items` and `create-release` middlewares resolve the project by shelling out to `git remote get-url origin`, so the plugin needs `exec: ["git"]`; and `write-variables` appends directly to a file in the working directory, so it needs `filesystem: read-write`.
 
 The plugin-level `token` is required — a blank value fails plugin load with `GitLab token is not configured.` `baseUrl` (default `https://gitlab.com`) points the plugin at a self-hosted instance; when set, add its host to `network` instead of (or alongside) `gitlab.com`. The project path is derived once per run from the `origin` remote's URL and cached — GitLab's nested groups are supported (e.g. `group/subgroup/project`); a remote that doesn't match the configured host fails with `Not a valid GitLab URL.`
 
@@ -63,6 +63,8 @@ Create a GitLab release, then comment (and optionally label) on the related merg
 |---|---|
 | `name` | The created release's name. |
 | `url` | The created release's URL. |
+
+Each item's `iid` may also be given as `number`, for portability with GitHub-shaped pipeline outputs.
 
 Commenting/labeling failures on an individual item warn and continue — they never fail the release step.
 
