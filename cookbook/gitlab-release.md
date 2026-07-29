@@ -105,7 +105,7 @@ Three plugins: **Git** (repository context, tagging, pushing), **Semantic Releas
 
 `gitlab.related-items` looks up the merged merge requests (and the issues they close) among the analyzed commits, emitting `mrs`. `gitlab.create-release` creates the GitLab release tagged `v<nextVersion>`, applies the `released` label to every related merge request and issue, and comments on each. `gitlab.write-variables` appends `RELEASE_URL` to a `moonlit.env` file in the working directory — pass that file to GitLab CI's `artifacts:reports:dotenv` to expose it to later jobs. `git.tag` and `git.push` record and push the Git tag.
 
-GitLab uses `mrs` (merge requests) where GitHub uses `pullRequests`; each related item's `iid` also accepts `number`, so pipelines written against the GitHub plugin's `{number}` shape port over unchanged. Against a self-hosted GitLab instance, set the `gitlab` plugin's `baseUrl` config and add its host to `network` alongside (or instead of) `gitlab.com`.
+GitLab uses `mrs` (merge requests) where GitHub uses `pullRequests`; each related item's `iid` also accepts `number`, so pipelines written against the GitHub plugin's `{number}` shape carry over unchanged. Against a self-hosted GitLab instance, set the `gitlab` plugin's `baseUrl` config and add its host to `network` alongside (or instead of) `gitlab.com`.
 
 ## Run it
 

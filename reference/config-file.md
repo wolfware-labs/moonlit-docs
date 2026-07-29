@@ -62,7 +62,8 @@ plugins:
     config:
       token: $(GITHUB_TOKEN)
     permissions:
-      network: ["api.github.com"]
+      network: ["api.github.com", "*.github.com"]
+      exec: ["git", "sh"]
       env: ["GITHUB_*"]
 ```
 

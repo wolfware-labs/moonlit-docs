@@ -24,6 +24,8 @@ name: "My First Pipeline"
 plugins:
   - name: git
     url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
+    permissions:
+      exec: ["git"]
 
 stages:
   info:
@@ -32,6 +34,7 @@ stages:
 ```
 
 - **plugins** lists the WebAssembly components your pipeline needs, each pulled from an OCI registry via an `oci://` reference.
+- **permissions** grants a plugin the host access it needs — here, `exec: ["git"]` lets it run the `git` CLI. Moonlit denies everything by default, so a plugin with no `permissions` block gets no capabilities at all.
 - **stages** is an ordered map of stage name to a list of steps.
 - Each step has a **name** (used to namespace its outputs) and a **run** value of the form `plugin.middleware` — here, `git.repo-context`, where `git` is the plugin's `name` and `repo-context` is the middleware it exports.
 
