@@ -69,6 +69,7 @@ plugins:
       token: $(GITHUB_TOKEN)
     permissions:
       network: ["api.github.com", "uploads.github.com"]
+      exec: ["git"]
       env: ["GITHUB_*"]
 
   - name: dotnet
@@ -78,7 +79,7 @@ plugins:
       filesystem: read-write
 ```
 
-`git` can shell out to the `git` binary and read/write the working directory, but has no network access. `gh` can talk to GitHub's API and upload hosts and read `GITHUB_`-prefixed environment variables, but can't touch the filesystem or spawn a process. `dotnet` can run the `dotnet` CLI and read/write the working directory, but has no network access and can't read any environment variables. Each plugin's blast radius is exactly what its job requires.
+`git` can shell out to the `git` binary and read/write the working directory, but has no network access. `gh` can talk to GitHub's API and upload hosts, read `GITHUB_`-prefixed environment variables, and spawn `git` to resolve the repository from the `origin` remote, but has no filesystem access of its own. `dotnet` can run the `dotnet` CLI and read/write the working directory, but has no network access and can't read any environment variables. Each plugin's blast radius is exactly what its job requires.
 
 ## Why This Matters
 
