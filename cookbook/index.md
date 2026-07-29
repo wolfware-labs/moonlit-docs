@@ -9,8 +9,12 @@ Practical, end-to-end `release.yml` recipes for common release workflows. Each r
 
 ## Recipes
 
-- [NuGet Release Pipeline](./nuget-release.md) — test, version, build, pack, and publish a NuGet package to nuget.org, then tag the release.
 - [Docker Deployment](./docker-deployment.md) — version, build a multi-platform image, push it to a registry, and deploy it to a remote host.
+- [NuGet Release Pipeline](./nuget-release.md) — test, version, build, pack, and publish a NuGet package to nuget.org, then tag the release.
+- [Semantic-release → GitHub](./semantic-release-github.md) — compute a version and changelog from conventional commits, then publish a GitHub release and notify Slack.
+- [npm Release](./npm-release.md) — test, version, build, and publish an npm package, then create a GitHub release.
+- [GitLab Release](./gitlab-release.md) — compute a version and changelog from conventional commits, then publish a GitLab release with merge-request and issue comments.
+- [Publish a Plugin](./publish-plugin.md) — scaffold, build, inspect, and publish a Moonlit plugin to an OCI registry.
 
 ## Contributing
 

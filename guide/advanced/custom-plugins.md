@@ -24,7 +24,7 @@ On a TTY this prompts for a namespace (defaults to your `git config user.name`),
 moonlit plugin new my-plugin \
   --namespace acme \
   --description "Does things" \
-  --license Apache-2.0
+  --license Elastic-2.0
 ```
 
 Pass `--sdk-path <path>` instead of a crates.io version when developing against a local checkout of the SDK.
