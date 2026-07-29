@@ -1,46 +1,41 @@
 ---
-title: Docker Deployment Example
-description: A complete example of using Moonlit to automate Docker image building and deployment
+title: Docker Deployment
+description: A complete Moonlit pipeline that versions, builds, pushes, and deploys a Docker image to a remote host
 ---
 
-# Docker Deployment Example
+# Docker Deployment
 
-This page provides a complete example of using Moonlit to automate the building and deployment of a Docker image. The pipeline builds a Docker image, tags it with a semantic version, pushes it to a registry, and deploys it to a target environment.
+A full pipeline that computes the next version, builds a multi-platform Docker image, pushes it to a registry, and deploys it to a remote host with `docker compose`.
+
+This recipe goes one step further than the [Docker Plugin's worked example](../plugins/examples/docker-deployment.md): it adds a `docker.deploy` stage that brings the freshly pushed image up on a remote host over SSH.
 
 ## Prerequisites
 
-Before using this pipeline, ensure you have:
+- A project with a `Dockerfile`
+- Access to a Docker registry (Docker Hub, GHCR, etc.) and its credentials
+- `docker` (with the `buildx` plugin) available on the machine running Moonlit
+- SSH access to the deployment host, with a `docker-compose.yml` already present there
+- The `git`, `sr` (Semantic Release), and `docker` plugin references below
 
-- A project with a Dockerfile
-- Access to a Docker registry (Docker Hub, GitHub Container Registry, etc.)
-- Docker installed on the machine running Moonlit
-- Appropriate credentials for your Docker registry
-
-## Configuration File
-
-Here's the complete configuration file for the Docker deployment pipeline:
+## `release.yml`
 
 ```yaml
 name: "Docker Deployment"
 
 plugins:
-  - name: "git"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0"
-  - name: "gh"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0"
-    config:
-      token: $(GITHUB_TOKEN)
-  - name: "sr"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0"
-  - name: "docker"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Docker/1.0.0"
-    config:
-      username: $(DOCKER_USERNAME)
-      password: $(DOCKER_PASSWORD)
-  - name: "slack"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Slack/1.0.0"
-    config:
-      token: $(SLACK_TOKEN)
+  - name: git
+    url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
+    permissions:
+      exec: ["git"]
+
+  - name: sr
+    url: "oci://registry.moonlitbuild.dev/wolfware/semantic-release:1.0.0"
+
+  - name: docker
+    url: "oci://registry.moonlitbuild.dev/wolfware/docker:1.0.0"
+    permissions:
+      exec: ["docker"]
+      env: ["MOONLIT_DOCKER_BUILDX_BUILDER"]
 
 stages:
   analyze:
@@ -52,257 +47,77 @@ stages:
         prefix: "v"
     - name: commits
       run: git.commits
-    - name: related
-      run: gh.related-items
-      config:
-        commits: $(output:commits:details)
     - name: version
       run: sr.calculate-version
+      haltIf: "!output.version.hasNewVersion"
       config:
         branch: $(output:repo:branch)
         baseVersion: $(output:tag:name)
         commits: $(output:commits:details)
-        prereleaseMappings:
-          main: latest
-          develop: staging
-          feature/*: dev
-
-  build:
-    - name: buildImage
-      run: docker.build
-      config:
-        dockerfile: "./Dockerfile"
-        context: "./"
-        tags:
-          - "mycompany/myapp:$(output:version:nextVersion)"
-          - "mycompany/myapp:$(output:version:prereleaseName)"
 
   publish:
     - name: login
       run: docker.login
       config:
-        registry: "docker.io"
-    - name: push
-      run: docker.push
+        registry: "ghcr.io"
+        username: $(DOCKER_USERNAME)
+        password: $(DOCKER_PASSWORD)
+    - name: buildx
+      run: docker.setup-buildx
       config:
-        image: "mycompany/myapp"
+        platforms: ["linux/amd64", "linux/arm64"]
+    - name: buildAndPush
+      run: docker.build-and-push
+      config:
+        builder: $(output:buildx:name)
         tags:
-          - "$(output:version:nextVersion)"
-          - "$(output:version:prereleaseName)"
+          - "ghcr.io/mycompany/myapp:$(output:version:nextVersion)"
+          - "ghcr.io/mycompany/myapp:latest"
+        platforms: ["linux/amd64", "linux/arm64"]
 
   deploy:
-    - name: deployToEnvironment
+    - name: deployToHost
       run: docker.deploy
       condition: $(output:repo:branch) == 'main'
       config:
-        image: "mycompany/myapp:$(output:version:nextVersion)"
-        environment: "production"
         host: $(DEPLOY_HOST)
-        sshKey: $(DEPLOY_SSH_KEY)
         composeFile: "./docker-compose.yml"
-
-  notify:
-    - name: notifySlackChannel
-      run: "slack.send-notification"
-      config:
-        channel: "#deployments"
-        message: ":whale:   New Docker Deployment - `mycompany/myapp:$(output:version:nextVersion)` deployed to $(output:deployToEnvironment:environment)   :rocket:"
+        environment:
+          APP_VERSION: $(output:version:nextVersion)
 ```
 
-## Pipeline Explanation
-
-Let's break down this pipeline to understand how it works:
+## Walkthrough
 
 ### Plugins
 
-The pipeline uses five plugins:
+Three plugins: **Git** (repository context and version boundary), **Semantic Release** (version calculation), and **Docker** (login, buildx setup, build/push, deploy). Git needs only `exec: ["git"]`. Semantic Release needs no `permissions:` block at all — it works entirely from the commit data it's given. Docker needs `exec: ["docker"]`, since every one of its middlewares shells out to the `docker` CLI, plus `env: ["MOONLIT_DOCKER_BUILDX_BUILDER"]`, since `build-and-push` falls back to that environment variable when no `builder` config or prior `setup-buildx` state is available. See [Sandboxing](../guide/concepts/sandboxing.md) for the full permission model.
 
-1. **Git Plugin**: For Git repository operations
-2. **GitHub Plugin**: For GitHub API integration
-3. **Semantic Release Plugin**: For semantic versioning
-4. **Docker Plugin**: For Docker operations
-5. **Slack Plugin**: For Slack notifications
+### Analyze stage
 
-Each plugin is configured with a name and URL, and some have additional configuration like tokens and credentials.
+`git.repo-context` reads the current branch. `git.latest-tag` finds the newest `v*` tag and records its commit as the boundary for `git.commits`, which lists the commits since that tag. `sr.calculate-version` computes the next version from those commits and halts the pipeline cleanly (via `haltIf`) when there's nothing to release.
 
-### Stages
+### Publish stage
 
-The pipeline has five stages:
+1. `docker.login` authenticates to the registry, with the password fed via stdin — never on the process argv.
+2. `docker.setup-buildx` creates a buildx builder for multi-platform builds and emits its `name`, which the next step picks up.
+3. `docker.build-and-push` builds the image for both platforms and pushes it, tagged with the calculated version and `latest`.
 
-1. **analyze**: Gathers information about the repository and calculates the next version
-2. **build**: Builds the Docker image
-3. **publish**: Pushes the Docker image to a registry
-4. **deploy**: Deploys the Docker image to a target environment
-5. **notify**: Sends a notification to a Slack channel
+### Deploy stage
 
-### Steps
+`docker.deploy` runs `docker compose -f <composeFile> up -d --pull always` against the remote host, with `DOCKER_HOST` set to `host` (e.g. `ssh://user@host`) for the duration of the call. The step only runs on `main`, guarded by `condition`. Both `host` and `composeFile` are required — a blank value fails the step. `environment` entries (here, `APP_VERSION`) are set on the `docker compose` child process so the compose file can reference them; `pull` defaults to `true`. There's no `service` config here — setting one fails with `"Swarm deploys are not supported yet."`, since the MVP only supports the compose path. `deploy` produces no outputs.
 
-#### Analyze Stage
-
-1. **repo**: Gets information about the Git repository
-   ```yaml
-   - name: repo
-     run: git.repo-context
-   ```
-   This step retrieves information about the current repository, such as the branch name, commit hash, and repository URL.
-
-2. **tag**: Gets the latest tag from Git
-  ```yaml
-  - name: tag
-    run: git.latest-tag
-    config:
-      prefix: "v"
-  ```
-  This step retrieves the latest tag that starts with "v" (e.g., "v1.0.0").
-
-3. **commits and related items**: Gets commits since the last tag and finds related GH items
-  ```yaml
-  - name: commits
-    run: git.commits
-  - name: ghItems
-    run: gh.related-items
-    config:
-      commits: $(output:commits:details)
-  ```
-  These steps retrieve the commits since the tag and then find related pull requests and issues on GitHub.
-
-4. **version**: Calculates the next version using semantic versioning
-  ```yaml
-  - name: version
-    run: sr.calculate-version
-    config:
-      branch: $(output:repo:branch)
-      baseVersion: $(output:tag:name)
-      commits: $(output:commits:details)
-      prereleaseMappings:
-        main: latest
-        develop: staging
-        feature/*: dev
-  ```
-   This step calculates the next version based on the commit messages and the current branch. It also maps branch names to prerelease identifiers.
-
-#### Build Stage
-
-1. **buildImage**: Builds the Docker image
-   ```yaml
-   - name: buildImage
-     run: docker.build
-     config:
-       dockerfile: "./Dockerfile"
-       context: "./"
-       tags:
-         - "mycompany/myapp:$(output:version:nextVersion)"
-         - "mycompany/myapp:$(output:version:prereleaseName)"
-   ```
-   This step builds a Docker image using the specified Dockerfile and context. It tags the image with the calculated version and a prerelease name based on the branch.
-
-#### Publish Stage
-
-1. **login**: Logs in to the Docker registry
-   ```yaml
-   - name: login
-     run: docker.login
-     config:
-       registry: "docker.io"
-   ```
-   This step logs in to the Docker registry using the credentials provided in the plugin configuration.
-
-2. **push**: Pushes the Docker image to the registry
-   ```yaml
-   - name: push
-     run: docker.push
-     config:
-       image: "mycompany/myapp"
-       tags:
-         - "$(output:version:nextVersion)"
-         - "$(output:version:prereleaseName)"
-   ```
-   This step pushes the Docker image to the registry with the specified tags.
-
-#### Deploy Stage
-
-1. **deployToEnvironment**: Deploys the Docker image to a target environment
-   ```yaml
-   - name: deployToEnvironment
-     run: docker.deploy
-     condition: $(output:repo:branch) == 'main'
-     config:
-       image: "mycompany/myapp:$(output:version:nextVersion)"
-       environment: "production"
-       host: $(DEPLOY_HOST)
-       sshKey: $(DEPLOY_SSH_KEY)
-       composeFile: "./docker-compose.yml"
-   ```
-   This step deploys the Docker image to a target environment using Docker Compose. It only runs if the current branch is 'main'.
-
-#### Notify Stage
-
-1. **notifySlackChannel**: Sends a notification to a Slack channel
-   ```yaml
-   - name: notifySlackChannel
-     run: "slack.send-notification"
-     config:
-       channel: "#deployments"
-       message: ":whale:   New Docker Deployment - `mycompany/myapp:$(output:version:nextVersion)` deployed to $(output:deployToEnvironment:environment)   :rocket:"
-   ```
-   This step sends a notification to a Slack channel with information about the deployment.
-
-## Running the Pipeline
-
-To run this pipeline, save the configuration to a file (e.g., `moonlit.yml`) and run:
+## Run it
 
 ```bash
-# Set environment variables
-set GITHUB_TOKEN=your_github_token
-set DOCKER_USERNAME=your_docker_username
-set DOCKER_PASSWORD=your_docker_password
-set DEPLOY_HOST=your_deploy_host
-set DEPLOY_SSH_KEY=your_deploy_ssh_key
-set SLACK_TOKEN=your_slack_token
+export DOCKER_USERNAME=your_docker_username
+export DOCKER_PASSWORD=your_docker_password
+export DEPLOY_HOST=ssh://deploy@your-host
 
-# Run the pipeline
-moonlit -f moonlit.yml
+moonlit run
 ```
 
-## Customizing the Pipeline
-
-You can customize this pipeline for your specific needs:
-
-- Change the Docker image name and tags
-- Modify the deployment configuration
-- Add additional build steps
-- Configure different environments based on branches
-
-For example, you might want to deploy to different environments based on the branch:
-
-```yaml
-stages:
-  # ... existing stages ...
-
-  deploy:
-    - name: deployToProduction
-      run: docker.deploy
-      condition: $(output:repo:branch) == 'main'
-      config:
-        image: "mycompany/myapp:$(output:version:nextVersion)"
-        environment: "production"
-        host: $(DEPLOY_PROD_HOST)
-        sshKey: $(DEPLOY_SSH_KEY)
-        composeFile: "./docker-compose.prod.yml"
-    
-    - name: deployToStaging
-      run: docker.deploy
-      condition: $(output:repo:branch) == 'develop'
-      config:
-        image: "mycompany/myapp:$(output:version:prereleaseName)"
-        environment: "staging"
-        host: $(DEPLOY_STAGING_HOST)
-        sshKey: $(DEPLOY_SSH_KEY)
-        composeFile: "./docker-compose.staging.yml"
-```
-
-## Next Steps
-
-- Learn about the [NuGet Release Pipeline](./nuget-release) example
-- Explore the [available plugins](/plugins/)
-- See how to [create your own plugins](/reference/plugin-development)
+- [Docker Plugin](../plugins/docker.md)
+- [Git Plugin](../plugins/git.md)
+- [Semantic Release Plugin](../plugins/semantic-release.md)
+- [Sandboxing](../guide/concepts/sandboxing.md)
+- [NuGet Release](./nuget-release.md)

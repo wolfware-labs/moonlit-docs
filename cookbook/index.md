@@ -1,15 +1,17 @@
+---
+title: Cookbook
+description: Practical, full pipeline recipes for common Moonlit release workflows
+---
+
 # Cookbook
 
-Welcome to the Moonlit Cookbook! This section contains practical examples and how-to guides for common use cases.
+Practical, end-to-end `release.yml` recipes for common release workflows. Each recipe is a complete pipeline you can adapt directly, with a walkthrough of what every stage and step does.
 
-Here you'll find step-by-step instructions for implementing various workflows and solutions using Moonlit.
+## Recipes
 
-## Available Recipes
-
-- [NuGet Release Pipeline](./nuget-release) - Learn how to set up an automated release pipeline for NuGet packages
-- [Docker Deployment](./docker-deployment) - Discover how to automate Docker image building and deployment
+- [NuGet Release Pipeline](./nuget-release.md) — test, version, build, pack, and publish a NuGet package to nuget.org, then tag the release.
+- [Docker Deployment](./docker-deployment.md) — version, build a multi-platform image, push it to a registry, and deploy it to a remote host.
 
 ## Contributing
 
-Have a useful workflow or recipe you'd like to share? We welcome contributions to the cookbook!
-Please check our [contribution guidelines](../guide/advanced/contributing) for more information.
+Have a useful recipe to share? See the [contribution guidelines](../guide/advanced/contributing.md) for how to propose one.

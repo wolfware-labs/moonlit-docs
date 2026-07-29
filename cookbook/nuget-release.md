@@ -1,49 +1,42 @@
 ---
-title: NuGet Release Pipeline Example
-description: A complete example of using Moonlit to automate a NuGet package release
+title: NuGet Release Pipeline
+description: A complete Moonlit pipeline that tests, versions, builds, packs, and publishes a NuGet package
 ---
 
-# NuGet Release Pipeline Example
+# NuGet Release Pipeline
 
-This page provides a complete example of using Moonlit to automate the release of a NuGet package. The pipeline analyzes the Git repository, calculates the next version using semantic versioning, creates a GitHub release, and notifies a Slack channel.
+A full pipeline that runs the test suite, computes the next version from conventional commits, builds and packs the project, publishes the package to nuget.org, and tags the release in Git.
+
+This recipe goes further than the [Dotnet Plugin's worked example](../plugins/examples/nuget-release.md): it adds a `dotnet.test` stage that gates the release on a green test run, and generates a changelog with `sr.generate-changelog` alongside the version calculation.
 
 ## Prerequisites
 
-Before using this pipeline, ensure you have:
+- A .NET project you want to package as a NuGet package, plus its test project
+- A Git repository
+- A NuGet API key with push permission on the target feed
+- The `git`, `sr` (Semantic Release), and `dotnet` plugin references below
 
-- A .NET project that you want to package as a NuGet package
-- A Git repository hosted on GitHub
-- A GitHub personal access token with appropriate permissions
-- A Slack webhook or token (if using Slack notifications)
-- OpenAI API key (for AI-generated changelogs)
-
-## Configuration File
-
-Here's the complete configuration file for the NuGet release pipeline:
+## `release.yml`
 
 ```yaml
 name: "NuGet Package Release"
 
 plugins:
-  - name: "git"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.5"
-  - name: "gh"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0-next.6"
-    config:
-      token: $(GITHUB_TOKEN)
-  - name: "sr"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.5"
-    config:
-      openAi:
-        apiKey: $(OPENAI_API_KEY)
-  - name: "dotnet"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Dotnet/1.0.0-next.5"
+  - name: git
+    url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
+    permissions:
+      exec: ["git"]
+
+  - name: sr
+    url: "oci://registry.moonlitbuild.dev/wolfware/semantic-release:1.0.0"
+
+  - name: dotnet
+    url: "oci://registry.moonlitbuild.dev/wolfware/dotnet:1.0.0"
     config:
       nugetApiKey: $(NUGET_API_KEY)
-  - name: "slack"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Slack/1.0.0-next.5"
-    config:
-      token: $(SLACK_TOKEN)
+    permissions:
+      exec: ["dotnet"]
+      filesystem: read-write
 
 stages:
   analyze:
@@ -55,27 +48,31 @@ stages:
         prefix: "v"
     - name: commits
       run: git.commits
-    - name: ghItems
-      run: gh.related-items
-      config:
-        commits: $(output:commits:details)
     - name: conventionalCommits
       run: sr.analyze
       haltIf: output.conventionalCommits.commitCount == 0
       config:
         commits: $(output:commits:details)
-        includeScopes:
-          - myproject
+
+  test:
+    - name: test
+      run: dotnet.test
+      config:
+        project: "./tests/MyProject.Tests.csproj"
+        configuration: "Release"
+
+  version:
     - name: version
       run: sr.calculate-version
       haltIf: "!output.version.hasNewVersion"
       config:
         branch: $(output:repo:branch)
         baseVersion: $(output:tag:name)
-        prereleaseMappings:
-          main: next
+        commits: $(output:conventionalCommits:commits)
     - name: changelog
       run: sr.generate-changelog
+      config:
+        commits: $(output:conventionalCommits:commits)
 
   build:
     - name: build
@@ -91,226 +88,54 @@ stages:
         version: $(output:version:nextFullVersion)
 
   release:
-    - name: publish
+    - name: push
       run: dotnet.push
       config:
         package: $(output:pack:packagePath)
-    - name: createRelease
-      run: gh.create-release
+    - name: createTag
+      run: git.tag
       config:
-        name: "Release $(output:version:nextVersion)"
-        tag: v$(output:version:nextVersion)
-        label: "released on @$(output:repo:branch)"
-        changelog: $(output:changelog:categories)
-        prerelease: $(output:version:isPrerelease)
-        pullRequests: $(output:ghItems:pullRequests)
-        issues: $(output:ghItems:issues)
-
-  notify:
-    - name: notifySlackChannel
-      run: "slack.send-notification"
-      config:
-        channel: "#moonlit"
-        message: ":rocket:   New Release - <$(output:createRelease:url)|$(output:createRelease:name)>   :tada:"
+        tagName: "v$(output:version:nextVersion)"
+    - name: pushTag
+      run: git.push
 ```
 
-## Pipeline Explanation
-
-Let's break down this pipeline to understand how it works:
+## Walkthrough
 
 ### Plugins
 
-The pipeline uses five plugins:
+Three plugins: **Git** (repository context, tagging, pushing), **Semantic Release** (conventional-commit parsing, version calculation, changelog), and **Dotnet** (test, build, pack, push). Git needs only `exec: ["git"]`. Semantic Release needs no `permissions:` block at all — it works entirely from the commit data it's given. Dotnet needs `exec: ["dotnet"]` plus `filesystem: read-write`, since `pack` and `test` write their output into a `.moonlit/` directory under the working directory. Plugin-level config sets `nugetApiKey`, used as the fallback source and key for `dotnet.push`. See [Sandboxing](../guide/concepts/sandboxing.md) for the full permission model.
 
-1. **Git Plugin**: For Git repository operations
-2. **GitHub Plugin**: For GitHub API integration
-3. **Semantic Release Plugin**: For semantic versioning and changelog generation
-4. **Dotnet Plugin**: For building, packing, and publishing .NET projects
-5. **Slack Plugin**: For Slack notifications
+### Analyze stage
 
-Each plugin is configured with a name and URL, and some have additional configuration like tokens and API keys.
+`git.repo-context`, `git.latest-tag`, and `git.commits` establish the current branch, the last release tag, and the commits since it. `sr.analyze` parses those commits as conventional commits, halting the pipeline (via `haltIf`) when none match.
 
-### Stages
+### Test stage
 
-The pipeline has four stages:
+`dotnet.test` runs the test project and parses the resulting TRX file for pass/fail/skip counts. A non-zero exit with reported failures fails the step with `"{failed} test(s) failed."`, which stops the pipeline before anything gets released — a failing suite never reaches `build` or `release`.
 
-1. **analyze**: Gathers information about the repository and calculates the next version
-2. **build**: Builds and packages the .NET project
-3. **release**: Publishes the package and creates a GitHub release
-4. **notify**: Sends a notification to a Slack channel
+### Version stage
 
-### Steps
+`sr.calculate-version` computes the next version from the parsed commits and halts cleanly when there's nothing to release. `sr.generate-changelog` groups the same commits into categories (Features, Bug Fixes, and so on) for downstream use — for example, posting in a release notification or attaching to a release page.
 
-#### Analyze Stage
+### Build stage
 
-1. **repo**: Gets information about the Git repository
-   ```yaml
-   - name: repo
-     run: git.repo-context
-   ```
-   This step retrieves information about the current repository, such as the branch name, commit hash, and repository URL.
+`dotnet.build` compiles the project with the calculated version baked into its assembly metadata; `dotnet.pack` packs it into a `.nupkg`, emitting `packagePath`.
 
-2. **tag**: Gets the latest tag from the Git repository
-   ```yaml
-   - name: tag
-     run: git.latest-tag
-     config:
-       prefix: "v"
-   ```
-   This step retrieves the latest tag from the Git repository that starts with "v" (e.g., "v1.0.0").
+### Release stage
 
-3. **commits**: Gets commits since the last tag
-   ```yaml
-   - name: commits
-     run: git.commits
-   ```
-   This step retrieves all commits that have been created since the last tag.
+`dotnet.push` publishes the package to nuget.org (the default `nugetSource`) using the plugin-level `nugetApiKey`. `git.tag` then records the release as a Git tag, and `git.push` pushes the branch and the new tag to `origin`.
 
-4. **ghItems**: Gets pull requests and issues related to the commits
-   ```yaml
-   - name: ghItems
-     run: gh.related-items
-     config:
-       commits: $(output:commits:details)
-   ```
-   This step retrieves all pull requests and issues that are related to the commits.
-
-5. **conventionalCommits**: Analyzes commits for conventional commit format
-   ```yaml
-   - name: conventionalCommits
-     run: sr.analyze
-     haltIf: output.conventionalCommits.commitCount == 0
-     config:
-       commits: $(output:commits:details)
-       includeScopes:
-         - myproject
-   ```
-   This step analyzes the commits to identify conventional commits and categorize them by type. It halts the pipeline if no conventional commits are found.
-
-6. **version**: Calculates the next version using semantic versioning
-   ```yaml
-   - name: version
-     run: sr.calculate-version
-     haltIf: "!output.version.hasNewVersion"
-     config:
-       branch: $(output:repo:branch)
-       baseVersion: $(output:tag:name)
-       prereleaseMappings:
-         main: next
-   ```
-   This step calculates the next version based on the conventional commits and the current branch. It halts the pipeline if no new version is needed.
-
-7. **changelog**: Generates a changelog from the conventional commits
-   ```yaml
-   - name: changelog
-     run: sr.generate-changelog
-   ```
-   This step generates a changelog from the conventional commits, organized by category (features, fixes, etc.).
-
-#### Build Stage
-
-1. **build**: Builds the .NET project
-   ```yaml
-   - name: build
-     run: dotnet.build
-     config:
-       project: "./src/MyProject.csproj"
-       version: $(output:version:nextFullVersion)
-       configuration: "Release"
-   ```
-   This step builds the .NET project with the calculated version.
-
-2. **pack**: Creates a NuGet package
-   ```yaml
-   - name: pack
-     run: dotnet.pack
-     config:
-       project: "./src/MyProject.csproj"
-       version: $(output:version:nextFullVersion)
-   ```
-   This step creates a NuGet package with the calculated version.
-
-#### Release Stage
-
-1. **publish**: Publishes the NuGet package
-   ```yaml
-   - name: publish
-     run: dotnet.push
-     config:
-       package: $(output:pack:packagePath)
-   ```
-   This step publishes the NuGet package to the configured feed.
-
-2. **createRelease**: Creates a GitHub release
-   ```yaml
-   - name: createRelease
-     run: gh.create-release
-     config:
-       name: "Release $(output:version:nextVersion)"
-       tag: v$(output:version:nextVersion)
-       label: "released on @$(output:repo:branch)"
-       changelog: $(output:changelog:categories)
-       prerelease: $(output:version:isPrerelease)
-       pullRequests: $(output:ghItems:pullRequests)
-       issues: $(output:ghItems:issues)
-   ```
-   This step creates a GitHub release with the calculated version, changelog, and links to related pull requests and issues.
-
-#### Notify Stage
-
-1. **notifySlackChannel**: Sends a notification to a Slack channel
-   ```yaml
-   - name: notifySlackChannel
-     run: "slack.send-notification"
-     config:
-       channel: "#moonlit"
-       message: ":rocket:   New Release - <$(output:createRelease:url)|$(output:createRelease:name)>   :tada:"
-   ```
-   This step sends a notification to a Slack channel with a link to the GitHub release.
-
-## Running the Pipeline
-
-To run this pipeline, save the configuration to a file (e.g., `moonlit.yml`) and run:
+## Run it
 
 ```bash
-# Set environment variables
-set GITHUB_TOKEN=your_github_token
-set SLACK_TOKEN=your_slack_token
-set OPENAI_API_KEY=your_openai_api_key
-set NUGET_API_KEY=your_nuget_api_key
+export NUGET_API_KEY=your_nuget_api_key
 
-# Run the pipeline
-moonlit -f moonlit.yml
+moonlit run
 ```
 
-## Extending the Pipeline
-
-You can extend this pipeline to include additional steps, such as:
-
-- Running tests before building
-- Signing the NuGet package
-- Publishing symbols to a symbol server
-- Deploying documentation
-- Creating GitHub deployment environments
-
-Here's an example of how you might add tests to the pipeline:
-
-```yaml
-stages:
-  # ... existing analyze stage ...
-
-  test:
-    - name: test
-      run: dotnet.test
-      config:
-        project: "./tests/MyProject.Tests.csproj"
-        configuration: "Release"
-        
-  # ... existing build, release, and notify stages ...
-```
-
-## Next Steps
-
-- Learn about the [Docker Deployment](./docker-deployment) example
-- Explore the [available plugins](/plugins/)
-- See how to [create your own plugins](/reference/plugin-development)
+- [Dotnet Plugin](../plugins/dotnet.md)
+- [Git Plugin](../plugins/git.md)
+- [Semantic Release Plugin](../plugins/semantic-release.md)
+- [Sandboxing](../guide/concepts/sandboxing.md)
+- [Docker Deployment](./docker-deployment.md)
