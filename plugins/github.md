@@ -5,173 +5,99 @@ description: Documentation for the GitHub plugin in Moonlit
 
 # GitHub Plugin
 
-The GitHub plugin provides integration with GitHub. It allows you to retrieve information from GitHub repositories, create releases, and work with issues and pull requests.
+Releases, related pull requests and issues, and CI variable export via the GitHub REST API.
 
-## Installation
-
-To use the GitHub plugin in your Moonlit pipeline, add it to the `plugins` section of your configuration file:
+## Reference
 
 ```yaml
 plugins:
-  - name: "gh"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0-next.6"
+  - name: gh
+    url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
     config:
       token: $(GITHUB_TOKEN)
+    permissions:
+      network: ["api.github.com", "*.github.com"]
+      env: ["GITHUB_*"]
 ```
 
-Note that the GitHub plugin requires a GitHub token to authenticate with the GitHub API. You can set this token as an environment variable and reference it in your configuration file.
+Moonlit is deny-by-default: a plugin with no `permissions:` block gets zero capabilities — see [Sandboxing](../guide/concepts/sandboxing.md) for the full model. The GitHub plugin calls the REST API, so it needs `network: ["api.github.com", "*.github.com"]`; the `write-variables` middleware also reads the `$GITHUB_OUTPUT`/`$GITHUB_ENV` paths from the environment, so it needs `env: ["GITHUB_*"]`.
 
-## Middlewares
+The plugin-level `token` is required — a blank value fails plugin load with `GitHub token is not configured.` The owner and repository are derived once per run from the `origin` remote's URL and cached; a remote that doesn't point at `github.com` fails with `Not a valid GitHub URL.`
 
-The GitHub plugin provides the following middlewares:
+## related-items
 
-### latest-tag (moved to Git plugin)
+Merged pull requests (matched against a commit set) and the issues they reference.
 
-Note: The latest-tag middleware is provided by the Git plugin. Use git.latest-tag to retrieve the latest tag. It can be filtered to only include tags with a specific prefix.
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `commits` | Array, e.g. `$(output:commits:details)` | Commits to match merged PRs against, by merge commit SHA. |
+| `includePullRequests` | Optional, default `true` | Look up pull requests. |
+| `includeIssues` | Optional, default `true` | Look up issues referenced by a matched PR's description (closing keywords such as `Fixes #42`, `Closes #7`). |
 
-#### Example
+An empty `commits` array skips the lookup entirely and succeeds. Both outputs are only emitted when non-empty.
+
+| Output | Description |
+|---|---|
+| `prs` | Array of `{ number, title, body, state, createdAt, updatedAt, mergedAt, mergeCommitSha }`, newest first. |
+| `pullRequests` | Alias of `prs` — the same array, for pipeline portability. |
+| `issues` | Array of `{ number, title, body, state, createdAt, updatedAt, closedAt, pullRequestNumber }`, newest first. |
+
+## create-release
+
+Create a GitHub release, then comment (and optionally label) on the related pull requests and issues.
+
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `name` | **Required** | Release name. |
+| `tag` | **Required** | Release tag. |
+| `body` | Optional | Release body. When blank, generated from `changelog`. |
+| `changelog` | Array of categories, e.g. `$(output:changelog:categories)` | Used to render `body` when it is blank; fails if both `body` and `changelog` are empty. |
+| `label` | Optional | Label applied to every entry in `pullRequests`/`issues`. |
+| `draft` | Optional, default `false` | Create as a draft release. |
+| `prerelease` | Optional, default `false` | Mark the release as a prerelease. |
+| `pullRequests` | Optional, array of `{ number }` | Pull requests to comment on (and label) after the release is created. |
+| `issues` | Optional, array of `{ number }` | Issues to comment on (and label) after the release is created. |
+
+| Output | Description |
+|---|---|
+| `name` | The created release's name. |
+| `url` | The created release's HTML URL. |
+
+## write-variables
+
+Append `key=value` pairs to the GitHub Actions output/environment files.
+
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `output` | Map, default `{}` | Appended to the file at `$GITHUB_OUTPUT`. |
+| `environment` | Map, default `{}` | Appended to the file at `$GITHUB_ENV`. |
+
+No outputs. A non-empty map whose corresponding environment variable isn't set fails with `GITHUB_OUTPUT is not set.` / `GITHUB_ENV is not set.` Values containing newlines are written using the `key<<EOF` heredoc form GitHub requires for multiline values.
+
+## Example
 
 ```yaml
+plugins:
+  - name: gh
+    url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
+    config:
+      token: $(GITHUB_TOKEN)
+    permissions:
+      network: ["api.github.com", "*.github.com"]
+
 stages:
-  analyze:
-    - name: tag
-      run: git.latest-tag
-      config:
-        prefix: "v"
-```
-
-### related-items
-
-The `related-items` middleware finds GitHub pull requests and issues related to a list of commits (e.g., commits since the last tag).
-
-#### Inputs
-
-| Name | Type | Required | Default | Description |
-|------|------|----------|---------|-------------|
-| commits | array | Yes | - | Array of commit details (e.g., $(output:commits:details) from git.commits) |
-
-#### Outputs
-
-| Name | Type | Description |
-|------|------|-------------|
-| pullRequests | array | Pull requests related to the provided commits |
-| issues | array | Issues related to the provided commits |
-
-#### Example
-
-```yaml
-stages:
-  analyze:
-    - name: tag
-      run: git.latest-tag
-      config:
-        prefix: "v"
-    - name: commits
-      run: git.commits
-    - name: ghItems
+  release:
+    - name: related
       run: gh.related-items
       config:
         commits: $(output:commits:details)
-    - name: nextStep
-      run: some.other-middleware
-      config:
-        commits: $(output:commits:details)
-        pullRequests: $(output:ghItems:pullRequests)
-        issues: $(output:ghItems:issues)
-```
-
-### create-release
-
-The `create-release` middleware creates a GitHub release.
-
-#### Inputs
-
-| Name | Type | Required | Default | Description |
-|------|------|----------|---------|-------------|
-| name | string | Yes | - | The name of the release |
-| tag | string | Yes | - | The tag to create the release from |
-| label | string | No | - | A label for the release |
-| changelog | string | No | - | The changelog for the release |
-| prerelease | boolean | No | false | Whether the release is a prerelease |
-| pullRequests | array | No | - | Pull requests to include in the release |
-| issues | array | No | - | Issues to include in the release |
-
-#### Outputs
-
-| Name | Type | Description |
-|------|------|-------------|
-| url | string | The URL of the created release |
-| name | string | The name of the created release |
-
-#### Example
-
-```yaml
-stages:
-  release:
-    - name: createRelease
+    - name: release
       run: gh.create-release
       config:
-        name: "Release $(output:version:nextVersion)"
-        tag: $(output:version:nextVersion)
-        label: "released on @$(output:repo:branch)"
-        changelog: $(output:changelog:entries)
+        name: "v$(output:version:nextVersion)"
+        tag: "v$(output:version:nextVersion)"
+        changelog: $(output:changelog:categories)
         prerelease: $(output:version:isPrerelease)
-        pullRequests: $(output:items:pullRequests)
-        issues: $(output:items:issues)
-    - name: nextStep
-      run: some.other-middleware
-      config:
-        releaseUrl: $(output:createRelease:url)
-        releaseName: $(output:createRelease:name)
+        pullRequests: $(output:related:pullRequests)
+        issues: $(output:related:issues)
 ```
-
-### write-variables
-
-The `write-variables` middleware allows you to set output and environment variables in your GitHub workflow.
-
-#### Inputs
-
-| Name | Type | Required | Default | Description |
-|------|------|----------|---------|-------------|
-| output | dictionary | No | {} | A dictionary of output variables to set |
-| environment | dictionary | No | {} | A dictionary of environment variables to set |
-
-#### Outputs
-
-This middleware does not produce any outputs.
-
-| Name | Type | Description |
-|------|------|-------------|
-| *None* | | |
-
-#### Example
-
-```yaml
-stages:
-  setup:
-    - name: setVariables
-      run: gh.write-variables
-      config:
-        output:
-          REPO_NAME: "my-repo"
-          VERSION: "1.0.0"
-        environment:
-          GITHUB_ENV: "production"
-          DEPLOY_TARGET: "main"
-```
-
-## Usage in Pipelines
-
-The GitHub plugin is commonly used in release pipelines to:
-
-1. Get information about the latest tag (using `git.latest-tag`)
-2. Gather related pull requests and issues for commits since the last tag (using `git.commits` + `gh.related-items`)
-3. Create a new release with a changelog and links to pull requests and issues (using `gh.create-release`)
-
-For a complete example of using the GitHub plugin in a pipeline, see the [NuGet Release Pipeline](./examples/nuget-release.md) example.
-
-## Next Steps
-
-- Learn about the [Git Plugin](./git.md) for Git repository operations
-- Explore the [Semantic Release Plugin](./semantic-release.md) for semantic versioning
-- See the [Configuration](../guide/concepts/configuration.md) page for more information about configuring plugins

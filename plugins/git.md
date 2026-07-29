@@ -5,142 +5,116 @@ description: Documentation for the Git plugin in Moonlit
 
 # Git Plugin
 
-The Git plugin provides integration with Git repositories. It allows you to get information about the current repository and perform Git operations like commit, tag, and push.
+Repository context, tag discovery, commit history, tagging, and pushing, driven by the `git` CLI.
 
-## Installation
-
-To use the Git plugin in your Moonlit pipeline, add it to the `plugins` section of your configuration file:
+## Reference
 
 ```yaml
 plugins:
-  - name: "git"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.5"
+  - name: git
+    url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
+    permissions:
+      exec: ["git"]
 ```
 
-## Middlewares
+Moonlit is deny-by-default: a plugin with no `permissions:` block gets zero capabilities. The Git plugin shells out to the `git` binary, so it needs the `exec: ["git"]` grant — see [Sandboxing](../guide/concepts/sandboxing.md) for the full permission model.
 
-The Git plugin provides the following middlewares:
+Every middleware discovers the repository by walking up from the working directory until it finds a `.git` directory; if none exists, the step fails with `Not a git repository (or any of the parent directories)`.
 
-### repo-context
+## repo-context
 
-The `repo-context` middleware retrieves information about the current Git repository, such as the branch name and remote URL. This information can be used in subsequent steps of your pipeline.
+Current branch and the `origin` remote URL.
 
-#### Inputs
+No config.
 
-This middleware does not require any inputs.
+| Output | Description |
+|---|---|
+| `branch` | The current branch name. |
+| `remoteUrl` | The `origin` remote's URL. Fails with `Remote 'origin' not found.` when there is no `origin` remote. |
 
-| Name | Type | Required | Default | Description |
-|------|------|----------|---------|-------------|
-| *None* | | | | |
+## latest-tag
 
-#### Outputs
+The newest tag matching a pattern; stores its commit SHA for `commits` to use as a boundary.
 
-| Name | Type | Description |
-|------|------|-------------|
-| branch | string | The name of the current Git branch |
-| remoteUrl | string | The URL of the remote Git repository |
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `prefix` | Optional, default `""` | Prefix stripped from (and required on) matching tag names. |
+| `suffix` | Optional, default `""` | Suffix stripped from (and required on) matching tag names. |
+| `pattern` | Optional, default `[0-9]+.[0-9]+.[0-9]+.*` | The core pattern matched between `prefix` and `suffix`, case-insensitively. |
 
-#### Example
+Tags are ordered by tagged-commit date, newest first. When no tag matches, the step succeeds with a warning and produces no outputs.
+
+| Output | Description |
+|---|---|
+| `name` | The matched tag name with `prefix`/`suffix` stripped. |
+| `fullName` | The matched tag's full ref name. |
+| `commitSha` | The commit the tag points at (the peeled commit for annotated tags). |
+
+## commits
+
+Commits in a range, newest first, with the boundary commit excluded.
+
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `sinceSha` | Optional | Exact commit SHA to use as the range boundary. Takes precedence over `since`. |
+| `since` | Optional | A ref, tag, or SHA resolved to a commit and used as the boundary. |
+| `until` | Optional, default `HEAD` | End of the range. |
+| `useSharedContext` | Optional, default `true` | When no `sinceSha`/`since` is given, fall back to the commit SHA stored by a prior `latest-tag` step in this run. |
+
+Boundary resolution precedence: `sinceSha` → `since` (resolved) → the shared `latest-tag` SHA → no boundary (the full history up to `until`).
+
+| Output | Description |
+|---|---|
+| `details` | Array of `{ sha, author, email, date, message }`, newest first. |
+| `count` | Number of commits in `details`. |
+
+## tag
+
+Create a tag, idempotently.
+
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `tagName` | **Required** | The tag to create. A blank value fails with `Tag name cannot be empty.` |
+| `message` | Optional | When set, creates an annotated tag with this message; otherwise a lightweight tag. |
+
+No outputs. An already-existing tag succeeds with a warning instead of failing.
+
+## push
+
+Push the current branch, and optionally tags, to a remote.
+
+| Config | Required / Default | Meaning |
+|---|---|---|
+| `remote` | Optional, default `origin` | The remote to push to. Missing → failure. |
+| `pushTags` | Optional, default `true` | Also run `git push <remote> --tags`. |
+
+No outputs. A branch with no configured upstream succeeds with a warning. Authentication failures fail with a hint to check SSH agent or HTTPS credentials.
+
+## Example
 
 ```yaml
+plugins:
+  - name: git
+    url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
+    permissions:
+      exec: ["git"]
+
 stages:
   analyze:
     - name: repo
       run: git.repo-context
-    - name: nextStep
-      run: some.other-middleware
-      config:
-        branch: $(output:repo:branch)
-        repoUrl: $(output:repo:remoteUrl)
-```
-
-In this example, the `repo-context` middleware is used to get information about the current Git repository. The branch name and remote URL are then used in the next step of the pipeline.
-
-### latest-tag
-
-The `latest-tag` middleware retrieves the latest tag from the Git repository. It can filter tags by prefix.
-
-#### Inputs
-
-| Name | Type | Required | Default | Description |
-|------|------|----------|---------|-------------|
-| prefix | string | No | - | A prefix to filter tags (e.g., "v" to get only tags starting with "v") |
-
-#### Outputs
-
-| Name | Type | Description |
-|------|------|-------------|
-| name | string | The name of the latest tag |
-| commitSha | string | The commit SHA that the tag points to |
-
-#### Example
-
-```yaml
-stages:
-  analyze:
-    - name: tag
-      run: git.latest-tag
-      config:
-        prefix: "v"
-    - name: nextStep
-      run: some.other-middleware
-      config:
-        baseVersion: $(output:tag:name)
-```
-
-### commits
-
-The `commits` middleware retrieves commits from the Git repository. By default, it retrieves all commits since the last tag.
-
-#### Inputs
-
-| Name | Type | Required | Default | Description |
-|------|------|----------|---------|-------------|
-| since | string | No | - | A commit SHA or tag to start from (if not provided, uses the latest tag) |
-| until | string | No | HEAD | A commit SHA or tag to end at |
-
-#### Outputs
-
-| Name | Type | Description |
-|------|------|-------------|
-| details | array | An array of commit details (message, author, date, etc.) |
-| count | integer | The number of commits retrieved |
-
-#### Example
-
-```yaml
-stages:
-  analyze:
     - name: tag
       run: git.latest-tag
       config:
         prefix: "v"
     - name: commits
       run: git.commits
-    - name: ghItems
-      run: gh.related-items
+
+  release:
+    - name: createTag
+      run: git.tag
       config:
-        commits: $(output:commits:details)
-    - name: nextStep
-      run: some.other-middleware
-      config:
-        commits: $(output:commits:details)
-        pullRequests: $(output:ghItems:pullRequests)
-        issues: $(output:ghItems:issues)
+        tagName: "v$(output:version:nextVersion)"
+    - name: push
+      run: git.push
 ```
-
-## Usage in Pipelines
-
-The Git plugin is commonly used in the early stages of a pipeline to gather information about the repository. This information can then be used to make decisions in later stages, such as:
-
-- Determining the version number based on the branch name
-- Creating releases only on specific branches
-- Including repository information in notifications
-
-For a complete example of using the Git plugin in a pipeline, see the [Docker Deployment](./examples/docker-deployment.md) and [NuGet Release Pipeline](./examples/nuget-release.md) examples.
-
-## Next Steps
-
-- Learn about the [GitHub Plugin](./github.md) for GitHub-specific operations
-- Explore the [Semantic Release Plugin](./semantic-release.md) for semantic versioning
-- See the [Configuration](../guide/concepts/configuration.md) page for more information about configuring plugins
