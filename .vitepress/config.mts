@@ -189,7 +189,7 @@ export default withMermaid({
     ],
 
     footer: {
-      message: 'Source-available under the Elastic License 2.0. | Made with ❤️ (and a lot of ☕) by the <a href="https://wolfware.dev" target="_blank">Wolfware</a> team',
+      message: 'Open source under MIT OR Apache-2.0. | Made with ❤️ (and a lot of ☕) by the <a href="https://wolfware.dev" target="_blank">Wolfware</a> team',
       copyright: 'Copyright © Wolfware LLC'
     }
   }

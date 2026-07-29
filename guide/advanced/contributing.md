@@ -9,7 +9,7 @@ Thanks for your interest in improving Moonlit. This page covers the workspace la
 
 ## License of Contributions
 
-Moonlit is source-available under the [Elastic License 2.0](https://github.com/wolfware-labs/moonlit/blob/main/LICENSE) (ELv2) — not an OSI-approved open-source license, but free to read, self-host, and extend. Unless stated otherwise, contributions you submit are provided under the same terms. "Moonlit" is a trademark of Wolfware LLC; the license grants no rights to use it.
+Moonlit is open source, dual-licensed under the [MIT](https://github.com/wolfware-labs/moonlit/blob/main/LICENSE-MIT) or [Apache-2.0](https://github.com/wolfware-labs/moonlit/blob/main/LICENSE-APACHE) license, at your option — free to read, self-host, and extend. Unless stated otherwise, contributions you submit are provided under the same terms. "Moonlit" is a trademark of Wolfware LLC; the license grants no rights to use it.
 
 ## Workspace Layout
 

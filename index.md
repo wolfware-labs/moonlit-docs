@@ -4,7 +4,7 @@ layout: home
 hero:
   name: "Moonlit"
   text: "Bring light to your release process"
-  tagline: A Rust and WebAssembly build and release automation engine. Declare your pipeline in YAML — sandboxed WASM plugins do the rest. Source-available under the Elastic License 2.0.
+  tagline: A Rust and WebAssembly build and release automation engine. Declare your pipeline in YAML — sandboxed WASM plugins do the rest. Open source under MIT OR Apache-2.0.
   image:
     src: /logo.png
     alt: Moonlit
@@ -38,8 +38,8 @@ features:
     details: Automate releases for Git, GitHub, GitLab, semantic versioning, .NET, Node.js, Docker, and Slack out of the box, or build and publish your own plugin.
 
   - icon: ⚖️
-    title: Source-Available
-    details: Moonlit is source-available under the Elastic License 2.0 — free to use, self-host, and extend inside your own products and pipelines.
+    title: Open Source
+    details: Moonlit is open source, dual-licensed under MIT OR Apache-2.0 — free to use, self-host, and extend inside your own products and pipelines.
 ---
 
 ## What is Moonlit?
