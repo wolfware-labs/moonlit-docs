@@ -1,0 +1,14 @@
+# Moonlit — security contact (RFC 9116).
+#
+# Vulnerabilities in Moonlit itself, in the registry, and reports of malicious or
+# malware-bearing published packages all go to the address below. It deliberately does
+# not route to a legal mailbox: the reports worth having are the ones a stranger
+# volunteers, and a legal address discourages exactly those.
+#
+# Expires is mandatory and this file is ignored once it passes. Renew it.
+
+Contact: mailto:security@wolfware.dev
+Expires: 2027-08-10T00:00:00.000Z
+Preferred-Languages: en, es
+Canonical: https://moonlitbuild.dev/.well-known/security.txt
+Canonical: https://registry.moonlitbuild.dev/.well-known/security.txt
