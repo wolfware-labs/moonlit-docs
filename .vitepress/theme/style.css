@@ -190,3 +190,49 @@ button, a {
     scroll-behavior: auto !important;
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* Registry alignment                                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Match registry.moonlitbuild.dev.
+ *
+ * Everything above customises the brand hue and the hero, but the surfaces were left at stock
+ * VitePress — so side by side with the registry the docs read as a lighter, differently-tinted
+ * product. Measured:
+ *
+ *              docs (stock)   registry
+ *   page       #1b1b1f        #0f1014
+ *   accent     #f9b44e        #e8c879
+ *
+ * The values below are the registry's own tokens, sampled from its running app: --color-neutral-1
+ * for the page, neutral-2 for raised surfaces, and --color-primary for the accent.
+ */
+.dark {
+  --vp-c-bg: #0f1014;
+  /* Nav and sidebar sit one step BELOW the page here, which is the relationship stock VitePress
+     uses (#161618 under #1b1b1f); the registry has no darker step, so this is neutral-1 taken
+     down by the same amount. */
+  --vp-c-bg-alt: #0a0b0e;
+  --vp-c-bg-soft: #19181d;
+  --vp-c-bg-elv: #19181d;
+
+  /*
+   * Code blocks are set explicitly, NOT left to follow --vp-c-bg-alt as VitePress does by default.
+   * That coupling is easy to miss: darkening bg-alt for the sidebar also pushed every code block
+   * to #0a0b0e, BELOW the page, where it sat at 1.04:1 against the surrounding text — a block with
+   * no visible boundary at all.
+   *
+   * The registry raises its code surfaces instead: markdown.ts renders them on neutral-2 with a
+   * neutral-a6 border. Same treatment here.
+   */
+  --vp-code-block-bg: #19181d;
+}
+
+/*
+ * The border the registry's code blocks carry, which VitePress does not draw.
+ */
+.dark div[class*='language-'] {
+  border: 1px solid var(--vp-c-divider);
+}
