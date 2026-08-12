@@ -74,12 +74,19 @@ export default withMermaid({
 
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
+    // activeMatch is on every section, and without it the highlight only survives on the section's
+    // own index page: VitePress compares against the item's `link`, so /guide/ was marked active
+    // while /guide/quick-start left the whole nav unhighlighted, with nothing to say which section
+    // the reader was in.
+    //
+    // Home keeps an anchored '^/$' rather than being left to default. Its link is '/', which is a
+    // prefix of every other path, so a looser pattern would light it up on every page in the site.
     nav: [
-      { text: 'Home', link: '/' },
-      { text: 'Guide', link: '/guide/' },
-      { text: 'Reference', link: '/reference/' },
-      { text: 'Plugins', link: '/plugins/' },
-      { text: 'Cookbook', link: '/cookbook/' }
+      { text: 'Home', link: '/', activeMatch: '^/$' },
+      { text: 'Guide', link: '/guide/', activeMatch: '^/guide/' },
+      { text: 'Reference', link: '/reference/', activeMatch: '^/reference/' },
+      { text: 'Plugins', link: '/plugins/', activeMatch: '^/plugins/' },
+      { text: 'Cookbook', link: '/cookbook/', activeMatch: '^/cookbook/' }
     ],
 
     // Algolia DocSearch Configuration
