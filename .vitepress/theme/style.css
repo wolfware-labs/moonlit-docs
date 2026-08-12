@@ -236,3 +236,47 @@ button, a {
 .dark div[class*='language-'] {
   border: 1px solid var(--vp-c-divider);
 }
+
+/**
+ * The accent, from the registry's --color-primary, per scheme.
+ *
+ * The gold cannot be shared across both: measured, #e8c879 on white is 1.62:1 against the 4.5:1
+ * WCAG asks of body text. The registry hit this first and answered with a bronze at the same
+ * perceptual lightness, so the accent stays one family without either scheme being illegible —
+ * those are its two values, and its --color-primary-contrast supplies the button text each way.
+ */
+:root {
+  --vp-c-brand-1: #7e4d05;
+  --vp-c-brand-2: #8e5806;
+  --vp-c-brand-3: #7e4d05;
+
+  --vp-button-brand-bg: #7e4d05;
+  --vp-button-brand-text: #fefeff;
+  --vp-button-brand-border: #7e4d05;
+
+  --vp-button-brand-hover-bg: #8e5806;
+  --vp-button-brand-hover-text: #fefeff;
+  --vp-button-brand-hover-border: #8e5806;
+
+  --vp-button-brand-active-bg: #6e3e00;
+  --vp-button-brand-active-text: #fefeff;
+  --vp-button-brand-active-border: #6e3e00;
+}
+
+.dark {
+  --vp-c-brand-1: #e8c879;
+  --vp-c-brand-2: #f0d798;
+  --vp-c-brand-3: #e8c879;
+
+  --vp-button-brand-bg: #e8c879;
+  --vp-button-brand-text: #2b2008;
+  --vp-button-brand-border: #e8c879;
+
+  --vp-button-brand-hover-bg: #f0d798;
+  --vp-button-brand-hover-text: #2b2008;
+  --vp-button-brand-hover-border: #f0d798;
+
+  --vp-button-brand-active-bg: #dcbf6f;
+  --vp-button-brand-active-text: #2b2008;
+  --vp-button-brand-active-border: #dcbf6f;
+}
