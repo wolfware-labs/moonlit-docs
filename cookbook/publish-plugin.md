@@ -18,10 +18,10 @@ A step-by-step CLI workflow that scaffolds a Rust plugin crate, builds it into a
 Scaffolding is optional — you can also start from an existing crate — but it's the fastest way to get a working plugin skeleton:
 
 ```bash
-moonlit plugin new my-plugin --namespace acme --license Elastic-2.0
+moonlit plugin new my-plugin --namespace acme --license "MIT OR Apache-2.0"
 ```
 
-This creates a `my-plugin/` crate from the SDK templates, wired up for the `moonlit_plugin!` macro. See the [Plugin SDK](../reference/plugin-development.md) reference for how to write middlewares and declare the plugin's config and capabilities.
+This creates a `my-plugin/` crate depending on `moonlit-pdk`, with a sample middleware wired up through the `moonlit_plugin!` macro. See the [Plugin SDK](../reference/plugin-development.md) reference for how to write middlewares and declare the plugin's config and capabilities.
 
 ## 2. Build
 
@@ -29,27 +29,27 @@ This creates a `my-plugin/` crate from the SDK templates, wired up for the `moon
 moonlit plugin build --release
 ```
 
-This compiles the crate to a WASI Preview 2 component via `cargo build --target wasm32-wasip2`, producing `target/wasm32-wasip2/release/my-plugin.wasm`.
+This compiles the crate to a WASI Preview 2 component via `cargo build --target wasm32-wasip2`, producing `target/wasm32-wasip2/release/my_plugin.wasm` (hyphens in the crate name become underscores in the artifact).
 
 ## 3. Inspect
 
 Verify the component before publishing it:
 
 ```bash
-moonlit plugin inspect target/wasm32-wasip2/release/my-plugin.wasm
+moonlit plugin inspect target/wasm32-wasip2/release/my_plugin.wasm
 ```
 
-This instantiates the component with zero capability grants and prints its name, version, and description, along with the middlewares it exports.
+This instantiates the component with zero capability grants and prints its name, version, and description, along with the middlewares it exports. Add `--output json` to see each middleware's input and output schema as well.
 
 ## 4. Log in
 
-Publishing to a private registry requires stored credentials:
+Publishing requires stored credentials for the target registry:
 
 ```bash
-moonlit login ghcr.io
+moonlit login ghcr.io --username my-user --token "$GHCR_TOKEN"
 ```
 
-This prompts for a username and token, then writes them to `~/.config/moonlit/credentials.toml` with `0600` permissions.
+This writes the credential to `~/.config/moonlit/credentials.toml` with `0600` permissions. Run `moonlit login` with no arguments to sign in to `registry.moonlitbuild.dev` through your browser instead.
 
 ## 5. Publish
 
@@ -57,7 +57,7 @@ This prompts for a username and token, then writes them to `~/.config/moonlit/cr
 moonlit plugin publish oci://ghcr.io/acme/my-plugin:1.0.0
 ```
 
-This pushes the release build to the registry, attaching provenance metadata — the crate's `repository`, `license`, and resolved SDK version — read from `Cargo.toml` and `Cargo.lock`.
+This pushes the release build to the registry, attaching provenance metadata — the crate's `repository`, `license`, and the resolved `moonlit-pdk` version — read from `Cargo.toml` and `Cargo.lock`.
 
 ## Use it in a pipeline
 

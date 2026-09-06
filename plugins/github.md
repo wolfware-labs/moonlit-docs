@@ -73,7 +73,7 @@ Append `key=value` pairs to the GitHub Actions output/environment files.
 | `output` | Map, default `{}` | Appended to the file at `$GITHUB_OUTPUT`. |
 | `environment` | Map, default `{}` | Appended to the file at `$GITHUB_ENV`. |
 
-No outputs. A non-empty map whose corresponding environment variable isn't set fails with `GITHUB_OUTPUT is not set.` / `GITHUB_ENV is not set.` Values containing newlines are written using the `key<<EOF` heredoc form GitHub requires for multiline values.
+No outputs. A non-empty map whose corresponding environment variable isn't set fails with `GITHUB_OUTPUT is not set.` / `GITHUB_ENV is not set.` Values containing newlines are written using the `key<<EOF` heredoc form GitHub requires for multiline values; a value containing a line that is exactly `EOF` is refused, since it would close the heredoc early.
 
 ## Example
 

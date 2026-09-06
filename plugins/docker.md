@@ -78,6 +78,7 @@ Deploy an image via `docker compose`, against a remote Docker host.
 |---|---|---|
 | `host` | **Required** | Set as `DOCKER_HOST` for the `docker compose` invocation (e.g. `ssh://user@host`). Blank → failure. |
 | `composeFile` | **Required** | Passed as `docker compose -f <composeFile>`. Blank → failure. |
+| `image` | Optional | Accepted for forward compatibility but not used; the compose file decides which image each service runs. |
 | `service` | Optional | When set, the step fails with `"Swarm deploys are not supported yet."` — MVP supports the compose path only. |
 | `environment` | Optional map | Each entry set as an environment variable on the `docker compose` invocation. |
 | `pull` | Optional, default `true` | Passes `--pull always`. |

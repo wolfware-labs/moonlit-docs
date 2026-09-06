@@ -58,7 +58,7 @@ Pack a project into a `.nupkg`.
 |---|---|
 | `packagePath` | Working-directory-relative path to the produced `.nupkg`. |
 
-The package is written to a per-project directory under `.moonlit/dotnet/`, wiped before the run. No `.nupkg` produced → failure `"No .nupkg files were created."`; more than one → a warning, using the alphabetically-first file.
+The package is written to `.moonlit/dotnet/<slug>/`, where `<slug>` is the project's relative path without its extension and with path separators flattened to `_` (`src/Api/Api.csproj` becomes `src_Api_Api`), wiped before the run. No `.nupkg` produced → failure `"No .nupkg files were created."`; more than one → a warning, using the alphabetically-first file.
 
 ## push
 
@@ -91,7 +91,7 @@ Run tests and report pass/fail/skip counts from the TRX results file.
 | `skipped` | Number of skipped tests. |
 | `total` | Total number of tests. |
 
-Results are written to `.moonlit/dotnet-test/` and parsed as TRX. A non-zero exit with failures reported fails with `"{failed} test(s) failed."`; a non-zero exit with no TRX or no failures reported fails generically; a zero exit with no TRX file fails with `"Test results file was not produced."`
+Results are written to `.moonlit/dotnet-test/<slug>/moonlit.trx` (same slug scheme as `pack`) and parsed as TRX; `skipped` is `total` minus the executed count. A non-zero exit with failures reported fails with `"{failed} test(s) failed."`; a non-zero exit with no TRX or no failures reported fails generically; a zero exit with no TRX file fails with `"Test results file was not produced."`
 
 ## Example
 

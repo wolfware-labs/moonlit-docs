@@ -44,13 +44,17 @@ stages:
         prefix: "v"
     - name: commits
       run: git.commits
+    - name: conventionalCommits
+      run: sr.analyze
+      haltIf: output.conventionalCommits.commitCount == 0
+      config:
+        commits: $(output:commits:details)
     - name: version
       run: sr.calculate-version
       haltIf: "!output.version.hasNewVersion"
       config:
         branch: $(output:repo:branch)
         baseVersion: $(output:tag:name)
-        commits: $(output:commits:details)
 
   publish:
     - name: login
@@ -77,11 +81,11 @@ stages:
 
 ### Plugins
 
-Three plugins: **Git** (repository context and version boundary), **Semantic Release** (version calculation), and **Docker** (login, buildx setup, build and push). The Docker plugin's grant is `exec: ["docker"]` — it shells out to the `docker` CLI — plus `env: ["MOONLIT_DOCKER_BUILDX_BUILDER"]`, since `build-and-push` falls back to that environment variable when no `builder` config or prior `setup-buildx` state is available. Git needs only `exec: ["git"]`; Semantic Release needs no `permissions:` block at all, since it works entirely from the commit data it's given. See [Sandboxing](../../guide/concepts/sandboxing.md) for the full permission model.
+Three plugins: **Git** (repository context and version boundary), **Semantic Release** (conventional-commit parsing and version calculation), and **Docker** (login, buildx setup, build and push). The Docker plugin's grant is `exec: ["docker"]` — it shells out to the `docker` CLI — plus `env: ["MOONLIT_DOCKER_BUILDX_BUILDER"]`, since `build-and-push` falls back to that environment variable when no `builder` config or prior `setup-buildx` state is available. Git needs only `exec: ["git"]`; Semantic Release needs no `permissions:` block at all, since it works entirely from the commit data it's given. See [Sandboxing](../../guide/concepts/sandboxing.md) for the full permission model.
 
 ### Analyze stage
 
-`git.repo-context` reads the current branch; `git.latest-tag` finds the newest `v*` tag and records its commit as the boundary for `git.commits`; `sr.calculate-version` computes the next version from the commits, halting the pipeline cleanly when there's nothing to release.
+`git.repo-context` reads the current branch; `git.latest-tag` finds the newest `v*` tag and records its commit as the boundary for `git.commits`; `sr.analyze` parses those commits as conventional commits, halting cleanly when none match; `sr.calculate-version` computes the next version from the parsed set (read from the plugin's shared state), halting the pipeline cleanly when there's nothing to release.
 
 ### Publish stage
 

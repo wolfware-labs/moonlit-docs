@@ -25,7 +25,7 @@ Run one or more nested release files, one child `moonlit run` invocation per mod
 
 | Config | Required / Default | Meaning |
 |---|---|---|
-| `modulePaths` | **Required**, non-empty array | Paths (relative to the working directory) to run. A path ending in `.yml`/`.yaml` (case-insensitive) is treated as a file — its parent directory becomes `-w` and its basename becomes `-f`; any other path is treated as a directory passed as `-w` with no `-f` (the child resolves `release.yml`/`moonlit.yml` itself). |
+| `modulePaths` | **Required**, non-empty array | Paths (relative to the working directory) to run. A path ending in `.yml`/`.yaml` (case-insensitive) is treated as a file — its parent directory becomes `-w` and its basename becomes `-f`; any other path is treated as a directory passed as `-w` with no `-f` (the child resolves `release.yml` or `release.yaml` itself). |
 | `stages` | Optional array | Each entry forwarded as its own `-s`. |
 | `continueOnModuleError` | Optional, default `false` | When `true`, a failing module doesn't stop the remaining modules. |
 | `arguments` | Optional map | Each entry forwarded as `-a key=value`. |
