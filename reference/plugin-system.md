@@ -14,7 +14,7 @@ sequence, and how capability enforcement is wired at the host boundary. For the 
 ## The component model, briefly
 
 Every plugin is a `wasm32-wasip2` WebAssembly **component** — WASI Preview 2, component model, not
-a core wasm module. The engine hosts components with [`wasmtime`](https://wasmtime.dev/), using
+a core wasm module — targeting the `moonlit:plugin@0.3.0` world. The engine hosts components with [`wasmtime`](https://wasmtime.dev/), using
 `wasmtime-wasi` for the standard WASI imports and `wasmtime-wasi-http` for outgoing HTTP. Each
 plugin gets **one component instance per pipeline run**, created when the pipeline loads and kept
 alive until it finishes. This is deliberate: it lets a plugin hold in-memory state across its
@@ -60,8 +60,9 @@ the platform equivalent on macOS/Windows), laid out as:
 └── refs/<hash>.json        # OCI tag -> digest resolution, with a timestamp for the TTL
 ```
 
-`plugins/` is keyed by the OCI manifest digest for `oci://` sources, or `sha256(url)` for `http(s)://`
-sources — `file://` sources are never cached. `meta.json` records the source reference, digest,
+`plugins/` is keyed by the OCI manifest digest for `oci://` sources (written as `sha256-<hex>`, since
+`:` isn't a valid path character on Windows), or `sha256(url)` for `http(s)://` sources — `file://`
+sources are never cached. `meta.json` records the source reference, digest,
 size, pulled-at timestamp, and (when the artifact declares it) the plugin's middleware names, so
 `moonlit plugin inspect` and cache-listing commands don't need to re-instantiate a component to
 describe what's cached.
@@ -71,8 +72,11 @@ describe what's cached.
 `oci://` is the default and recommended distribution scheme, following the CNCF Wasm OCI Artifact
 convention (interoperable with `wkg`/`wasm-pkg-tools` and ORAS): `artifactType`
 `application/vnd.wasm.component.v1+wasm`, a config blob of media type
-`application/vnd.wasm.config.v0+json` carrying a `moonlit` extension block (world, middleware
-names, SDK version), and a single component-bytes layer of media type `application/wasm`.
+`application/vnd.wasm.config.v0+json` carrying a `moonlit` extension block (the `moonlit:plugin@0.3.0`
+world, the middleware names, and the `moonlit-pdk` version the plugin was built with), and a single
+component-bytes layer of media type `application/wasm`. `moonlit plugin publish` also stamps the
+manifest with `org.opencontainers.image.*` annotations for the title, version, description, source
+repository, and license, read from the crate's `Cargo.toml`.
 
 Resolution proceeds:
 
@@ -89,9 +93,11 @@ Resolution proceeds:
 5. Store the blob at `oci/sha256/<digest>`, materialize it at `plugins/<digest>/plugin.wasm`, and
    write `meta.json` with the source reference, digest, size, and pulled-at timestamp.
 
-Authentication follows Docker-style credential resolution: `~/.docker/config.json` first (so a
-Docker-authenticated registry already works with no separate step), then Moonlit's own
-`~/.config/moonlit/credentials.toml`, written by `moonlit login <registry>`.
+Authentication follows Docker-style credential resolution: `~/.docker/config.json` first (inline
+`auth` entries only; credential helpers and `credsStore` are not consulted), so a Docker-authenticated
+registry already works with no separate step, then Moonlit's own `~/.config/moonlit/credentials.toml`,
+written by `moonlit login`. A Moonlit entry holds either a Bearer `token` (what the device flow
+stores) or a `username`/`password` pair. With nothing stored for the host, the pull is anonymous.
 
 ## Capability enforcement at the host boundary
 
@@ -104,7 +110,7 @@ import is satisfied:
 | Grant | Enforced in | Mechanism |
 |---|---|---|
 | `network` | `engine/src/host/net.rs` (`AllowlistHooks`) | Wraps `wasi:http/outgoing-handler`'s `send_request` hook; the request's authority is matched against a `GlobSet` built from `permissions.network`. A miss is denied and logged as a warning naming the blocked host and the `permissions` key to add — the request never leaves the sandbox. |
-| `exec` | `engine/src/host/imports.rs` (`ProcessHost::spawn`/`run`) | The `moonlit:plugin/process` implementation checks `cmd.program` against a `GlobSet` built from `permissions.exec` before spawning anything; a miss is denied and logged the same way. |
+| `exec` | `engine/src/host/imports.rs` (`ProcessHost::spawn`/`run`) | The `moonlit:plugin/process` implementation checks `cmd.program` against a `GlobSet` built from `permissions.exec` before spawning anything; a miss is denied and logged the same way. The spawned process is an ordinary OS process: its `cwd` and `env` come from the command, and its stdout/stderr are streamed back line by line. |
 | `env` | `engine/src/host/perms.rs` (`filter_env`) | The process env snapshot is glob-filtered against `permissions.env` *before* it's handed to `WasiCtxBuilder`, so non-matching variables are never visible inside the sandbox, not merely hidden by convention. |
 | `filesystem` | `engine/src/host/perms.rs` (`filesystem_perms`) | Maps the `none \| read-only \| read-write` grant to WASI `DirPerms`/`FilePerms` and either preopens the working directory or skips the preopen entirely for `none` — a denied plugin has no filesystem handle to use, regardless of what it requests. |
 
@@ -119,7 +125,7 @@ component against it. Nothing about this differs by plugin source — an `oci://
 Once instantiated, a `PluginInstance` is driven through the WIT exports in a fixed order for the
 life of the pipeline run:
 
-1. **`describe`** — read once by `moonlit plugin inspect`; static metadata, no config needed.
+1. **`describe`** — read by `moonlit plugin inspect` and `moonlit plugin publish`; static metadata, no config needed.
 2. **`init`**  — called once, immediately after instantiation, with the plugin's `config:` block.
    An `Err` here is a load-time failure (exit code 3).
 3. **`list-middlewares`** — read at pipeline *build* time (before any step runs) to validate every
@@ -136,7 +142,7 @@ re-instantiating (which would discard the plugin's in-memory shared state from e
 ## See also
 
 - [WIT Contract](./wit-contract.md) — the exact interfaces and types this host implements.
-- [Plugin SDK](./plugin-development.md) — the Rust SDK plugins are built against.
+- [Plugin SDK](./plugin-development.md) — the Rust crate plugins are built against.
 - [Sandboxing](../guide/concepts/sandboxing.md) — the `permissions` YAML block from the pipeline
   author's point of view.
 - [Publishing a Plugin](../guide/advanced/publishing-plugins.md) — pushing a component to an OCI
