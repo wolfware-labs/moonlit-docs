@@ -5,7 +5,13 @@ description: Learn how to install and set up Moonlit for your projects
 
 # Installing Moonlit
 
-Moonlit ships as a single native binary, `moonlit`, with no separate runtime to install. Pick whichever channel below fits your platform and workflow.
+Moonlit ships as a single native binary, `moonlit`, with no separate runtime to install.
+
+## Quick Install
+
+The picker below shows the recommended command for your operating system, with the other channels for that platform underneath. The sections that follow describe every channel in full.
+
+<InstallCommand />
 
 ## Installer Script
 

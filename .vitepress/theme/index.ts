@@ -5,6 +5,7 @@ import DefaultTheme from 'vitepress/theme'
 import './style.css'
 import SEOMetadata from './components/SEOMetadata.vue'
 import VersionSelector from './components/VersionSelector.vue'
+import InstallCommand from './components/InstallCommand.vue'
 
 export default {
   extends: DefaultTheme,
@@ -22,6 +23,7 @@ export default {
     // Register components globally
     app.component('SEOMetadata', SEOMetadata)
     app.component('VersionSelector', VersionSelector)
+    app.component('InstallCommand', InstallCommand)
   },
   setup() {
     // Add JSON-LD structured data for SEO

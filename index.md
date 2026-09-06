@@ -50,19 +50,9 @@ Because plugins are WASM components rather than native code, they can be written
 
 ## Installation
 
-The quickest way to install Moonlit on macOS or Linux is the installer script:
+Pick your operating system for the recommended install command. Prebuilt archives and every other channel are covered in the [installation guide](/guide/installation).
 
-```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/wolfware-labs/moonlit/releases/latest/download/moonlit-installer.sh | sh
-```
-
-or, with Homebrew:
-
-```bash
-brew install wolfware-labs/tap/moonlit
-```
-
-A PowerShell installer, Chocolatey and npm packages, prebuilt archives, a GitHub Action, and a container image are also available — see the [installation guide](/guide/installation) for every channel.
+<InstallCommand />
 
 ## Quick Example
 
