@@ -112,6 +112,7 @@ export default withMermaid({
           items: [
             { text: 'Introduction', link: '/guide/' },
             { text: 'Installation', link: '/guide/installation' },
+            { text: 'GitHub Actions', link: '/guide/github-actions' },
             { text: 'Quick Start', link: '/guide/quick-start' }
           ]
         },

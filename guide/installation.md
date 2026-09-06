@@ -46,6 +46,13 @@ docker run --rm wolfware/moonlit version
 
 To run a pipeline in the container, mount your project directory into the container and invoke `moonlit run` from there.
 
+## GitHub Actions
+
+    - uses: wolfware-labs/setup-moonlit@v1
+    - run: moonlit run
+
+See [GitHub Actions](/guide/github-actions) for inputs, outputs and caching.
+
 ## Verifying the Installation
 
 Once installed, confirm Moonlit is on your `PATH` and check its version:
