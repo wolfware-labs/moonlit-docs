@@ -9,12 +9,12 @@ A **middleware** is a named operation a plugin exports — the actual unit of wo
 
 ## What a Middleware Is
 
-Each plugin is a WebAssembly component that exports one or more middlewares. A plugin advertises its middlewares through the `list-middlewares` export of the `moonlit:plugin` world, returning a name and description for each one:
+Each plugin is a WebAssembly component that exports one or more middlewares. A plugin advertises its middlewares through the `list-middlewares` export of the `moonlit:plugin` world, returning a name, a description, and JSON Schemas for the config it reads and the outputs it publishes:
 
 ```
 git         → repo-context, latest-tag, commits, tag, push
 sr          → analyze, calculate-version, generate-changelog
-gh          → create-release
+gh          → related-items, create-release, write-variables
 ```
 
 There's no separate "middleware type" or base class to implement — a middleware is simply a name the plugin recognizes when its `execute` export is called with that name. The plugin's own code decides how to route on it internally.
@@ -34,7 +34,7 @@ stages:
         branch: $(output:repo:branch)
 ```
 
-Here, `git.latest-tag` calls the `latest-tag` middleware on the plugin registered under the alias `git`. A malformed `run` value fails with `Invalid run format: <value>. Expected format: 'plugin.middleware'`. Every `run` reference is checked against the target plugin's `list-middlewares` result **before the pipeline executes** — an unknown plugin alias or middleware name fails fast at load time (exit code 2), not partway through a run.
+Here, `git.latest-tag` calls the `latest-tag` middleware on the plugin registered under the alias `git`. A malformed `run` value fails with `'<value>' is not a valid run reference; use the format 'plugin.middleware'.` Every `run` reference is checked against the target plugin's `list-middlewares` result **before the pipeline executes** — an unknown plugin alias or middleware name fails fast at load time (exit code 2), not partway through a run.
 
 ## How the Engine Dispatches
 
@@ -81,7 +81,7 @@ For example, if the step named `tag` runs `git.latest-tag` and the middleware re
 
 ## Middlewares and the Sandbox
 
-A middleware never talks to the network, the filesystem, or a subprocess directly — it goes through host-mediated interfaces (`wasi:http`, `wasi:filesystem`, `moonlit:host/process`) that the engine gates per plugin. What a given middleware can actually reach at run time is controlled by its plugin's `permissions` grant, not by anything the middleware itself requests. See [Sandboxing](./sandboxing.md) for the full capability model.
+A middleware never talks to the network, the filesystem, or a subprocess directly — it goes through host-mediated interfaces (`wasi:http`, `wasi:filesystem`, `moonlit:plugin/process`) that the engine gates per plugin. What a given middleware can actually reach at run time is controlled by its plugin's `permissions` grant, not by anything the middleware itself requests. See [Sandboxing](./sandboxing.md) for the full capability model.
 
 ## Next Steps
 

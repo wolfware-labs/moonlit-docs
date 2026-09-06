@@ -50,13 +50,19 @@ Because plugins are WASM components rather than native code, they can be written
 
 ## Installation
 
-The quickest way to install Moonlit is with `cargo`:
+The quickest way to install Moonlit on macOS or Linux is the installer script:
 
 ```bash
-cargo install moonlit-cli
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/wolfware-labs/moonlit/releases/latest/download/moonlit-installer.sh | sh
 ```
 
-Prebuilt archives, a Homebrew tap, and a container image are also available — see the [installation guide](/guide/installation) for every channel.
+or, with Homebrew:
+
+```bash
+brew install wolfware-labs/tap/moonlit
+```
+
+A PowerShell installer, Chocolatey and npm packages, prebuilt archives, a GitHub Action, and a container image are also available — see the [installation guide](/guide/installation) for every channel.
 
 ## Quick Example
 
@@ -68,26 +74,37 @@ name: "Release Pipeline"
 variables:
   projectPath: "./src/MyProject.csproj"
 
-# Register plugins, pulled from an OCI registry, that provide middlewares for the pipeline
+# Register plugins, pulled from an OCI registry, that provide middlewares for the pipeline.
+# Each one is sandboxed and gets only the capabilities its permissions block grants.
 plugins:
   - name: "git"
     url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
+    permissions:
+      exec: ["git"]
 
   - name: "gh"
     url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
     config:
       token: $(GITHUB_TOKEN)
+    permissions:
+      network: ["api.github.com"]
+      exec: ["git"]
 
   - name: "sr"
     url: "oci://registry.moonlitbuild.dev/wolfware/semantic-release:1.0.0"
 
   - name: "dotnet"
     url: "oci://registry.moonlitbuild.dev/wolfware/dotnet:1.0.0"
+    permissions:
+      exec: ["dotnet"]
+      filesystem: read-write
 
   - name: "slack"
     url: "oci://registry.moonlitbuild.dev/wolfware/slack:1.0.0"
     config:
       token: $(SLACK_TOKEN)
+    permissions:
+      network: ["slack.com"]
 
 # Define the stages of the pipeline, executed in sequence
 stages:
@@ -103,25 +120,30 @@ stages:
     - name: commits
       run: git.commits
 
+    - name: conventionalCommits
+      run: sr.analyze
+      haltIf: output.conventionalCommits.commitCount == 0
+      config:
+        commits: $(output:commits:details)
+
     - name: version
       run: sr.calculate-version
+      haltIf: "!output.version.hasNewVersion"
       config:
         branch: $(output:repo:branch)
         baseVersion: $(output:tag:name)
-        commits: $(output:commits:details)
 
   build:
     - name: build
       run: dotnet.build
       config:
         project: $(vars:projectPath)
+        version: $(output:version:nextFullVersion)
         configuration: "Release"
 
   release:
     - name: changelog
       run: sr.generate-changelog
-      config:
-        commits: $(output:commits:details)
 
     - name: release
       run: gh.create-release

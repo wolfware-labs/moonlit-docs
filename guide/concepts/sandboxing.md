@@ -30,23 +30,25 @@ plugins:
     url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
     permissions:
       network: ["api.github.com"]        # allowed hosts for wasi:http
-      exec: []                           # allowed programs for moonlit:host/process
+      exec: []                           # allowed programs for moonlit:plugin/process
       env: ["GITHUB_*"]                  # env var glob patterns readable by the plugin
       filesystem: read-write             # none | read-only | read-write (of the working dir)
 ```
 
 - **`network`** — a list of allowed hostnames. The engine wraps `wasi:http/outgoing-handler` with a host-side allowlist filter; a request to any host not on the list is blocked before it leaves the sandbox.
-- **`exec`** — a list of allowed program names. Checked in the engine's implementation of `moonlit:host/process`; only programs named here can be spawned via the plugin's `process.spawn`/`process.run` calls.
+- **`exec`** — a list of allowed program names. Checked in the engine's implementation of `moonlit:plugin/process`; only programs named here can be spawned via the plugin's `process.spawn`/`process.run` calls.
 - **`env`** — a list of glob patterns (e.g. `"GITHUB_*"`) matched against environment variable names. The engine applies this as a filter when materializing the plugin's view of the accumulated configuration/environment — variables that don't match are invisible to the plugin.
-- **`filesystem`** — one of `none`, `read-only`, or `read-write`, controlling the WASI preopen of the working directory. `none` means no directory is preopened at all — the plugin has no filesystem handle to use, regardless of what it asks for. This key defaults to `none` when the `permissions` block is present but `filesystem` is omitted.
+- **`filesystem`** — one of `none`, `read-only`, or `read-write` (`readonly` and `readwrite` are accepted too), controlling the WASI preopen of the working directory. `none` means no directory is preopened at all — the plugin has no filesystem handle to use, regardless of what it asks for. This key defaults to `none` when the `permissions` block is present but `filesystem` is omitted.
+
+The three list keys are glob patterns, so `*.github.com` covers every GitHub subdomain. Any key other than these four inside `permissions` is a configuration error, so a typo can't silently widen or narrow a grant.
 
 ## Denied Access
 
 When a plugin tries to reach a host or program it wasn't granted, the engine blocks the call and surfaces a **warning in the run output** — it names the blocked target and the `permissions` key that would allow it, so the fix is a one-line YAML edit rather than a debugging session:
 
 ```
-⚠ gh: network access to "uploads.github.com" was denied — add it to
-  permissions.network for plugin "gh" to allow this request
+warn  blocked from connecting to 'uploads.github.com' — add it to the plugin's permissions.network
+warn  blocked from running 'docker' — add it to permissions.exec
 ```
 
 The step isn't automatically failed by a denied capability — whether that turns into a step failure depends on how the plugin itself handles the resulting error from its host call.

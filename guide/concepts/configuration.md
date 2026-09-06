@@ -36,7 +36,7 @@ stages:
 
 Moonlit builds configuration as an ordered stack of layers, resolved in this order, where **later layers win**:
 
-1. **Base layer** — environment variables prefixed `MOONLIT_` (prefix stripped), plus a `.env` file in the working directory.
+1. **Base layer** — a `.env` file in the working directory, plus environment variables prefixed `MOONLIT_` (prefix stripped); on a name collision the environment variable wins.
 2. **Release layer** — `vars:<name>` and `args:<name>` from the YAML's `variables`/`arguments` sections. CLI `--arg key=value` entries override the YAML `arguments`.
 3. **Plugin layer** (per plugin, at load time) — the plugin's `config:` block, `$(...)`-substituted against layers 1–2.
 4. **Step layers** (during the run) — each step's `config:`, substituted against everything accumulated so far.
@@ -122,13 +122,15 @@ haltIf: "!output.version.hasNewVersion"
 A few things to know about how these are evaluated:
 
 - Supported operators: `==`, `!=`, `>`, `<`, `>=`, `<=`, `&&`, `||`, `!`, parentheses, string literals (single or double quotes), and numeric literals.
-- Both dot-notation (`output.version.hasNewVersion`) and `$(...)` substitution (`$(output:version:hasNewVersion)`) work — `$(...)` substitution runs over the condition string *before* it's evaluated, and identifier resolution is case-insensitive.
+- Both dot-notation (`output.version.hasNewVersion`) and `$(...)` substitution (`$(output:version:hasNewVersion)`) work — `$(...)` substitution runs over the condition string *before* it's evaluated (a resolved value is inlined as a boolean, number, or quoted string), and identifier resolution is case-insensitive.
+- Values are coerced before comparison, so `output.version.isPrerelease == true` compares booleans and `output.test.failed > 0` compares numbers. Datetime-shaped strings compare as datetimes.
+- Expressions run in a bounded evaluator with no access to the filesystem, network, or environment; only `output` is in scope.
 - Anything other than a boolean `true` result is treated as `false`.
 - If a `condition` fails to evaluate, Moonlit logs a warning and treats it as `false` (the step is skipped) — evaluation errors don't abort the pipeline. A `haltIf` that fails to evaluate, by contrast, **fails the step** with a diagnostic: a broken halt guard silently continuing would be more dangerous than stopping.
 
 ## Scalar Coercion
 
-Configuration values are parsed as raw strings and only coerced to a typed value when a middleware binds them, or when building a condition's `output` scope. The coercion order is fixed: `bool` (`true`/`false`, case-insensitive) → integer → floating point → RFC3339/ISO datetime → fallback to `string`.
+Configuration values are parsed as raw strings and only coerced to a typed value when a middleware binds them, or when building a condition's `output` scope. The coercion order is fixed: `bool` (`true`/`false`, case-insensitive) → integer → floating point → datetime → fallback to `string`. Datetimes are recognized in RFC 3339 form with an offset, as `YYYY-MM-DDTHH:MM:SS` or `YYYY-MM-DD HH:MM:SS` (taken as UTC), or as a bare `YYYY-MM-DD` date.
 
 ## Example: Complete Configuration
 
@@ -213,7 +215,7 @@ stages:
 
 ## Using the Configuration File
 
-By default, `moonlit run` looks for `release.yml` in the current directory. Point it at a different file with `-f`:
+By default, `moonlit run` looks for `release.yml` in the current directory, then `release.yaml`. Point it at a different file with `-f`:
 
 ```bash
 moonlit run -f ./path/to/release.yml

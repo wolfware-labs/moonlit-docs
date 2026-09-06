@@ -29,13 +29,13 @@ stages:
 
 ### Stage Execution
 
-At run time, the engine **flattens all stages, in declaration order, into a single linear list of steps** and executes them one after another. Stage names don't create parallel branches; they exist for organization and for the `-s`/`--stages` filter:
+At run time, the engine **flattens all stages, in declaration order, into a single linear list of steps** and executes them one after another. Stage names don't create parallel branches; they exist for organization and for the `-s`/`--stage` filter:
 
 ```bash
 moonlit run -s build,test
 ```
 
-This runs only the steps under the `build` and `test` stages, skipping any others. `-s` accepts both repeated flags and a comma-separated list.
+This runs only the steps under the `build` and `test` stages, skipping any others. `-s` accepts both repeated flags and a comma-separated list, and stage names are matched case-insensitively.
 
 Because stages flatten into one list, there's an implicit dependency on declaration order: a stage's steps only run after every step declared before it has completed. If a step fails, the pipeline stops by default, unless that step sets `continueOnError`.
 
@@ -59,7 +59,7 @@ stages:
 Each step has:
 
 - **name** — a unique identifier for the step; also the key under which its outputs are exposed (`output:<name>:<key>`)
-- **run** — the middleware to execute, in the format `pluginName.middlewareName` (split on the first `.`); a malformed value fails with `Invalid run format: <value>. Expected format: 'plugin.middleware'`
+- **run** — the middleware to execute, in the format `pluginName.middlewareName` (split on the first `.`); a malformed value fails with `'<value>' is not a valid run reference; use the format 'plugin.middleware'.`
 - **condition** (optional) — an expression; the step is skipped when it evaluates to false
 - **haltIf** (optional) — an expression; the pipeline stops cleanly after this step when it evaluates to true
 - **continueOnError** (optional, default `false`) — whether to continue the pipeline if this step fails
@@ -73,9 +73,9 @@ For each step, in order, the engine:
 2. Reports progress
 3. Evaluates `condition`, skipping the step if it's falsy
 4. Merges the step's `config` over the accumulated configuration, applying `$(...)` substitution
-5. Calls the plugin's middleware
+5. Calls the plugin's middleware, bounded by `--step-timeout` when one is set
 6. Records the result and logs any warnings
-7. Stops the pipeline on failure, unless `continueOnError` is set
+7. Stops the pipeline on failure, unless `continueOnError` is set (a timeout always stops it)
 8. Appends the step's outputs under `output:<name>:<key>`
 9. Evaluates `haltIf`, stopping the pipeline cleanly if it's truthy
 
@@ -103,10 +103,11 @@ Use `condition` to make a step's execution depend on an expression:
 
 ```yaml
 - name: deployToProduction
-  run: deploy.azure
+  run: docker.deploy
   condition: $(output:repo:branch) == 'main'
   config:
-    environment: "production"
+    host: $(DEPLOY_HOST)
+    composeFile: "./docker-compose.yml"
 ```
 
 `deployToProduction` only runs when the current branch is `main`. Conditions have access to a small expression language over accumulated outputs — see [Configuration](./configuration.md) for the syntax.
@@ -116,14 +117,14 @@ Use `condition` to make a step's execution depend on an expression:
 Use `haltIf` to stop the pipeline cleanly after a step completes, without treating it as a failure:
 
 ```yaml
-- name: checkVersion
-  run: version.check
-  haltIf: $(output:checkVersion:isPrerelease) == true
+- name: version
+  run: sr.calculate-version
+  haltIf: "!output.version.hasNewVersion"
   config:
-    version: $(output:version:nextVersion)
+    baseVersion: $(output:tag:name)
 ```
 
-Here, the pipeline halts after `checkVersion` if the version is a prerelease. A halted pipeline is reported as successful.
+Here, the pipeline halts after `version` when the commits since the last tag don't call for a new release. A halted pipeline is reported as successful.
 
 ### Error Handling
 
@@ -152,6 +153,8 @@ plugins:
       exec: ["git"]
   - name: gh
     url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
+    config:
+      token: $(GITHUB_TOKEN)
     permissions:
       network: ["api.github.com"]
       exec: ["git"]
@@ -188,6 +191,7 @@ stages:
       run: dotnet.build
       config:
         project: "./src/MyProject.csproj"
+        version: $(output:version:nextFullVersion)
         configuration: "Release"
 
   publish:
@@ -195,7 +199,7 @@ stages:
       run: dotnet.pack
       config:
         project: "./src/MyProject.csproj"
-        version: $(output:version:nextVersion)
+        version: $(output:version:nextFullVersion)
 
     - name: createRelease
       run: gh.create-release

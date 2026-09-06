@@ -45,11 +45,11 @@ Running a pipeline follows the same sequence regardless of what plugins it uses:
 
 1. **Parse** — the CLI reads the YAML file and the engine turns it into a pipeline configuration.
 2. **Resolve plugins** — the engine resolves and instantiates every plugin listed in `plugins` **in parallel**: pull from the local content-addressed cache or an OCI registry (or read a `file://`/`http(s)://` reference), then instantiate the component in `wasmtime`.
-3. **Flatten stages** — stages are flattened, in declaration order, into a single linear list of steps. Stage names only matter for the `-s`/`--stages` filter (see [Stages and Steps](./stages-steps.md)); they don't create parallel branches or express dependencies beyond ordering.
-4. **Execute steps sequentially.** For each step the engine: checks for cancellation, reports progress, evaluates `condition` (skipping the step if it's falsy), merges the step's `config` over the accumulated configuration with `$(...)` substitution, calls the plugin's `execute` export, records a `StepResult` (name, success, skipped, duration, error), logs any warnings, stops the pipeline on failure unless `continueOnError` is set, appends the step's outputs under `output:<stepName>:<key>`, and finally evaluates `haltIf` (cleanly stopping the pipeline if it's truthy).
+3. **Flatten stages** — stages are flattened, in declaration order, into a single linear list of steps. Stage names only matter for the `-s`/`--stage` filter (see [Stages and Steps](./stages-steps.md)); they don't create parallel branches or express dependencies beyond ordering.
+4. **Execute steps sequentially.** For each step the engine: checks for cancellation, reports progress, evaluates `condition` (skipping the step if it's falsy), merges the step's `config` over the accumulated configuration with `$(...)` substitution, calls the plugin's `execute` export (bounded by `--step-timeout` when one is set), records a `StepResult` (name, success, skipped, duration, error), logs any warnings, stops the pipeline on failure unless `continueOnError` is set, appends the step's outputs under `output:<stepName>:<key>`, and finally evaluates `haltIf` (cleanly stopping the pipeline if it's truthy).
 5. **Summarize** — a summary table is rendered and the process exits with a code reflecting the outcome.
 
-This is the same run semantics the pipeline has always had — the difference in the current engine is that step 2 now produces sandboxed WASM component instances instead of loaded .NET assemblies.
+Before step 2 begins, the engine also checks every step's `run:` reference against the middlewares each plugin reports, so an unknown plugin alias or middleware name is a load-time configuration error rather than a failure partway through the run.
 
 ## Plugin Lifetime and Shared State
 
@@ -59,7 +59,7 @@ Each plugin gets **one component instance for the whole pipeline run**, created 
 
 The engine's errors map to a small, doc-promised set of process exit codes: `0` success, `1` general/unexpected error, `2` configuration error, `3` plugin load error, `4` pipeline execution error (a step failed).
 
-By default a failing step stops the pipeline; setting `continueOnError: true` on a step lets the pipeline continue past it. Because `wasmtime` permanently poisons a component's `Store` after a trap, a plugin that traps can't safely keep running for the rest of that pipeline run — so the engine also marks the *plugin* itself unavailable after a trap, and any later step that targets it fails fast rather than silently losing that plugin's in-memory state.
+By default a failing step stops the pipeline; setting `continueOnError: true` on a step lets the pipeline continue past it. Because `wasmtime` permanently poisons a component's `Store` after a trap, a plugin that traps can't safely keep running for the rest of that pipeline run — so the engine also marks the *plugin* itself unavailable after a trap, and any later step that targets it fails fast rather than silently losing that plugin's in-memory state. A step that exceeds `--step-timeout` is treated the same way, and aborts the run outright even when the step sets `continueOnError`, since its interrupted instance can't be reused.
 
 ## Next Steps
 

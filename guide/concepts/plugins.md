@@ -11,8 +11,9 @@ Moonlit's plugin system is one of its core features, allowing you to extend the 
 
 A Moonlit plugin is a **WebAssembly component** — built for WASI Preview 2 and the component model — that implements the `moonlit:plugin` world. A plugin component exports:
 
+- **`describe`** — returns the plugin's name, version, description, and optional icon without needing any configuration; this is what `moonlit plugin inspect` and the registry read.
 - **`init`** — called once after instantiation with the plugin's global `config` block; returns the plugin's name, version, and description, or an error that aborts the pipeline with a plugin-load diagnostic.
-- **`list-middlewares`** — returns the middlewares the plugin provides, used both for discovery (`moonlit plugin inspect`) and to validate every `run:` reference in your pipeline before execution starts.
+- **`list-middlewares`** — returns the middlewares the plugin provides, each with a name, description, and JSON Schemas for its config and outputs; used both for discovery (`moonlit plugin inspect`) and to validate every `run:` reference in your pipeline before execution starts.
 - **`execute`** — runs one named middleware against a step's fully-substituted configuration and returns its result: success/failure, warnings, and output values.
 
 Plugins don't call the host directly for things like the network or the filesystem — they import a small set of host-provided capabilities (structured logging, reading accumulated configuration, progress reporting, a permission-gated subprocess API) plus the standard `wasi:http`, `wasi:filesystem`, and `wasi:cli` interfaces, all mediated by the engine.
@@ -84,7 +85,7 @@ plugins:
       filesystem: read-write        # none | read-only | read-write of the working directory
 ```
 
-`filesystem` defaults to `none` when the block is present but the key is omitted. If a plugin is denied a capability it tries to use — an ungranted network host or program, for example — the run output surfaces a warning naming the blocked target and the `permissions` key that would allow it.
+`filesystem` defaults to `none` when the block is present but the key is omitted, and a key the block doesn't recognize is a configuration error. If a plugin is denied a capability it tries to use — an ungranted network host or program, for example — the run output surfaces a warning naming the blocked target and the `permissions` key that would allow it.
 
 ## Plugin Configuration
 

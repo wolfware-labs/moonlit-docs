@@ -10,20 +10,25 @@ Moonlit distributes plugins as [OCI](https://opencontainers.org/) artifacts — 
 ## Log In to a Registry
 
 ```bash
-moonlit login ghcr.io
+moonlit login
 ```
 
-On a TTY this prompts for a username (leave blank for token-only auth) and a token. Both can be passed as flags for non-interactive use, e.g. in CI:
+With no arguments this signs in to Moonlit's own registry, `registry.moonlitbuild.dev`, through your browser: the CLI prints a one-time code, opens the registry's approval page, and stores the token the registry issues once you approve. Pass a host to sign in elsewhere.
+
+For CI, or for a registry that doesn't offer the browser flow (GitHub Container Registry, for example), pass the credential directly and no browser is involved:
 
 ```bash
-moonlit login registry.moonlitbuild.dev --username my-user --token "$REGISTRY_TOKEN"
+moonlit login --token "$MOONLIT_TOKEN"
+moonlit login ghcr.io --username my-user --token "$GHCR_TOKEN"
 ```
 
 Credentials are written to `~/.config/moonlit/credentials.toml` (created with `0600` permissions), keyed by registry host. Leaving `--username` unset stores a bearer token; supplying one stores basic auth. When resolving a plugin, Moonlit checks `~/.docker/config.json` first, then falls back to this file — so Docker-authenticated registries already work without a separate login.
 
+`moonlit logout [host]` removes a stored credential, and revokes the token on the registry first when it came from the browser flow. See the [CLI reference](../../reference/cli.md#moonlit-login-host) for the full set of options.
+
 ## Build and Publish
 
-Publishing introspects your **release** build to read its metadata and middleware list, then pushes it as a single-layer OCI artifact:
+Publishing introspects your **release** build to read its name, version, description, and middleware list, then pushes it as a single-layer OCI artifact annotated with the crate's repository, license, and `moonlit-pdk` version:
 
 ```bash
 moonlit plugin build --release
