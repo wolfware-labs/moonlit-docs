@@ -2,18 +2,31 @@ name: "Documents Site Image Release"
 
 plugins:
   - name: "git"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.5"
+    url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
+    permissions:
+      exec: ["git"]
+
   - name: "gh"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0-next.6"
+    url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
     config:
       token: $(GITHUB_TOKEN)
+    permissions:
+      network: ["api.github.com"]
+      exec: ["git"]
+
   - name: "sr"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.5"
+    url: "oci://registry.moonlitbuild.dev/wolfware/semantic-release:1.0.0"
     config:
-      openAi:
+      ai:
+        provider: openai
         apiKey: $(OPENAI_API_KEY)
+    permissions:
+      network: ["api.openai.com"]
+
   - name: "docker"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Docker/1.0.0-next.4"
+    url: "oci://registry.moonlitbuild.dev/wolfware/docker:1.0.0"
+    permissions:
+      exec: ["docker"]
 
 stages:
   analyze:
@@ -46,6 +59,9 @@ stages:
           dev: next
     - name: changelog
       run: sr.generate-changelog
+      config:
+        filterNonUserFacingCommits: true
+        refineCommitsSummary: true
 
   build:
     - name: login
