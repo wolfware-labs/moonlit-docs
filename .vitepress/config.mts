@@ -86,7 +86,8 @@ export default withMermaid({
       { text: 'Guide', link: '/guide/', activeMatch: '^/guide/' },
       { text: 'Reference', link: '/reference/', activeMatch: '^/reference/' },
       { text: 'Plugins', link: '/plugins/', activeMatch: '^/plugins/' },
-      { text: 'Cookbook', link: '/cookbook/', activeMatch: '^/cookbook/' }
+      { text: 'Cookbook', link: '/cookbook/', activeMatch: '^/cookbook/' },
+      { text: 'Registry', link: 'https://registry.moonlitbuild.dev' }
     ],
 
     // Algolia DocSearch Configuration
