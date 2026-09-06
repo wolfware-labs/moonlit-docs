@@ -3,15 +3,27 @@
 The source for [moonlitbuild.dev](https://moonlitbuild.dev/), the documentation site for
 [Moonlit](https://github.com/wolfware-labs/moonlit). Built with [VitePress](https://vitepress.dev/).
 
+This repository holds the prose. The CLI, the engine, and the plugin development kit live in
+[`wolfware-labs/moonlit`](https://github.com/wolfware-labs/moonlit); published plugins live in the
+[registry](https://registry.moonlitbuild.dev).
+
 ## Layout
 
-| Directory | Contents |
+| Path | Contents |
 | --- | --- |
-| `guide/` | Getting started, core concepts, and plugin authoring guides |
-| `reference/` | CLI, configuration file, WIT contract, plugin SDK, and error reference |
-| `plugins/` | One page per first-party plugin |
-| `cookbook/` | Complete `release.yml` recipes |
-| `.vitepress/` | Site configuration, theme, and navigation |
+| `index.md` | The landing page |
+| `guide/` | Installation, quick start, and GitHub Actions setup |
+| `guide/concepts/` | How the engine works: stages and steps, plugins, middlewares, configuration, sandboxing |
+| `guide/advanced/` | Writing plugins, publishing them, and contributing to Moonlit |
+| `reference/` | CLI, configuration file, plugin system, WIT contract, plugin SDK, and error reference |
+| `plugins/` | One page per first-party plugin, plus longer examples under `plugins/examples/` |
+| `cookbook/` | Complete `release.yml` recipes, end to end |
+| `public/` | Static assets served from the site root (logos, `robots.txt`) |
+| `.vitepress/config.mts` | Site config, navigation, sidebar, search, and SEO |
+| `.vitepress/theme/` | Custom theme: styles and the `SEOMetadata`, `VersionSelector`, and `InstallCommand` components |
+| `versions.json` | The version list the `VersionSelector` reads |
+| `Dockerfile`, `nginx.conf` | The container image the site ships in |
+| `release.yml` | The Moonlit pipeline that builds and releases that image |
 
 ## Working locally
 
@@ -22,16 +34,58 @@ npm run docs:build    # production build into .vitepress/dist
 npm run docs:preview  # serve the production build
 ```
 
+Run `docs:build` before opening a pull request. VitePress fails the build on a dead internal link,
+so it catches the mistakes the dev server lets through.
+
+## Adding a page
+
+1. Create the Markdown file in the section it belongs to, with `title` and `description` frontmatter.
+   The description is what search results and social cards show.
+2. Register it in the matching `sidebar` array in `.vitepress/config.mts`. A page that is not in the
+   sidebar is reachable only by direct URL or search.
+3. Link to it from the section index, so readers working through a section in order find it.
+
+Conventions worth knowing:
+
+- `cleanUrls` is on, so internal links carry no `.html` extension: `/guide/quick-start`, not
+  `/guide/quick-start.html`.
+- Diagrams are [Mermaid](https://mermaid.js.org/) fenced blocks, rendered at build time by
+  `vitepress-plugin-mermaid`. No client-side library to load.
+- `<InstallCommand />` renders the install snippet for the visitor's operating system. Use it rather
+  than hardcoding one platform's command.
+- Each nav entry needs an `activeMatch` pattern. Without it the section stops being highlighted as
+  soon as the reader leaves its index page.
+
 ## Keeping pages accurate
 
 The reference pages describe the behaviour of the `moonlit` CLI, the engine, the `moonlit-pdk`
-crate, and the first-party plugins. When one of those changes, update the matching page in the
-same change: `reference/cli.md` for flags and commands, `reference/config-file.md` and
-`reference/error-handling.md` for the YAML schema and its diagnostics, `reference/wit-contract.md`
-for the plugin ABI, `reference/plugin-development.md` for the PDK, and the page under `plugins/`
-for a plugin's middlewares, config keys, and outputs.
+crate, and the first-party plugins. When one of those changes, update the matching page in the same
+change:
+
+| Change | Page |
+| --- | --- |
+| Commands and flags | `reference/cli.md` |
+| YAML schema and its diagnostics | `reference/config-file.md`, `reference/error-handling.md` |
+| Plugin ABI | `reference/wit-contract.md` |
+| PDK surface | `reference/plugin-development.md` |
+| A plugin's middlewares, config keys, or outputs | the page under `plugins/` |
+
+Example pipelines are held to the same standard as the engine: permissions are deny-by-default, so
+every snippet has to grant the `exec`, `network`, and `filesystem` access its plugins actually need.
+
+## Versioning
+
+`versions.json` drives the version picker in the header. `current` is the label shown on the
+button, and each entry in `versions` is a `text`/`link` pair pointing at wherever that version of
+the site is served. The picker fetches the file at runtime, so `buildEnd` in `.vitepress/config.mts`
+copies it into the build output alongside the generated pages.
 
 ## Deployment
 
-The site is packaged into a container image by the `Dockerfile` in this directory and released
-through the `release.yml` pipeline, which is itself a Moonlit pipeline.
+`Dockerfile` builds the site and serves it from nginx. `release.yml` — itself a Moonlit pipeline —
+analyzes commits, calculates the next version, builds and pushes `wolfware/moonlit-docs`, and opens
+a GitHub release.
+
+The pipeline only considers commits scoped `docs` (`docs:`, `docs(guide):`, and so on) and halts
+when none are found, so use that scope for anything that should ship. Releases are tagged
+`docs-vX.Y.Z`, keeping the site's versions separate from the CLI's.
