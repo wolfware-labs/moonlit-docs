@@ -18,7 +18,7 @@ plugins:
       env: ["MOONLIT_DOCKER_BUILDX_BUILDER"]
 ```
 
-Moonlit is deny-by-default: a plugin with no `permissions:` block gets zero capabilities — see [Sandboxing](../guide/concepts/sandboxing.md) for the full model. The Docker plugin shells out to the `docker` CLI, so it needs `exec: ["docker"]`. `build-and-push` resolves its builder in order — an explicit `builder` config value, then the name recorded by a prior `setup-buildx` step in this run, then the `MOONLIT_DOCKER_BUILDX_BUILDER` environment variable — so the plugin also needs `env: ["MOONLIT_DOCKER_BUILDX_BUILDER"]`. No plugin-level config; credentials and options are passed per middleware.
+Moonlit is deny-by-default, so a plugin with no `permissions:` block gets zero capabilities. [Sandboxing](../guide/concepts/sandboxing.md) has the full model. The Docker plugin shells out to the `docker` CLI, so it needs `exec: ["docker"]`. `build-and-push` resolves its builder in a fixed order: an explicit `builder` config value first, then the name recorded by a prior `setup-buildx` step in the same run, then the `MOONLIT_DOCKER_BUILDX_BUILDER` environment variable. That last fallback is why the plugin also needs `env: ["MOONLIT_DOCKER_BUILDX_BUILDER"]`. No plugin-level config; credentials and options are passed per middleware.
 
 ## login
 
@@ -79,7 +79,7 @@ Deploy an image via `docker compose`, against a remote Docker host.
 | `host` | **Required** | Set as `DOCKER_HOST` for the `docker compose` invocation (e.g. `ssh://user@host`). Blank → failure. |
 | `composeFile` | **Required** | Passed as `docker compose -f <composeFile>`. Blank → failure. |
 | `image` | Optional | Accepted for forward compatibility but not used; the compose file decides which image each service runs. |
-| `service` | Optional | When set, the step fails with `"Swarm deploys are not supported yet."` — MVP supports the compose path only. |
+| `service` | Optional | When set, the step fails with `"Swarm deploys are not supported yet."` The MVP supports the compose path only. |
 | `environment` | Optional map | Each entry set as an environment variable on the `docker compose` invocation. |
 | `pull` | Optional, default `true` | Passes `--pull always`. |
 

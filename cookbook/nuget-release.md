@@ -104,7 +104,7 @@ stages:
 
 ### Plugins
 
-Three plugins: **Git** (repository context, tagging, pushing), **Semantic Release** (conventional-commit parsing, version calculation, changelog), and **Dotnet** (test, build, pack, push). Git needs only `exec: ["git"]`. Semantic Release needs no `permissions:` block at all — it works entirely from the commit data it's given. Dotnet needs `exec: ["dotnet"]` plus `filesystem: read-write`, since `pack` and `test` write their output into a `.moonlit/` directory under the working directory. Plugin-level config sets `nugetApiKey`, used as the fallback source and key for `dotnet.push`. See [Sandboxing](../guide/concepts/sandboxing.md) for the full permission model.
+Three plugins: **Git** (repository context, tagging, pushing), **Semantic Release** (conventional-commit parsing, version calculation, changelog), and **Dotnet** (test, build, pack, push). Git needs only `exec: ["git"]`. Semantic Release needs no `permissions:` block at all, since it works entirely from the commit data it is given. Dotnet needs `exec: ["dotnet"]` plus `filesystem: read-write`, since `pack` and `test` write their output into a `.moonlit/` directory under the working directory. Plugin-level config sets `nugetApiKey`, used as the fallback source and key for `dotnet.push`. See [Sandboxing](../guide/concepts/sandboxing.md) for the full permission model.
 
 ### Analyze stage
 
@@ -112,11 +112,11 @@ Three plugins: **Git** (repository context, tagging, pushing), **Semantic Releas
 
 ### Test stage
 
-`dotnet.test` runs the test project and parses the resulting TRX file for pass/fail/skip counts. A non-zero exit with reported failures fails the step with `"{failed} test(s) failed."`, which stops the pipeline before anything gets released — a failing suite never reaches `build` or `release`.
+`dotnet.test` runs the test project and parses the resulting TRX file for pass/fail/skip counts. A non-zero exit with reported failures fails the step with `"{failed} test(s) failed."`, stopping the pipeline before anything is released. A failing suite never reaches `build` or `release`.
 
 ### Version stage
 
-`sr.calculate-version` computes the next version from the parsed commits and halts cleanly when there's nothing to release. `sr.generate-changelog` groups the same commits into categories (Features, Bug Fixes, and so on) for downstream use — for example, posting in a release notification or attaching to a release page.
+`sr.calculate-version` computes the next version from the parsed commits and halts cleanly when there's nothing to release. `sr.generate-changelog` groups the same commits into categories such as Features and Bug Fixes, ready for a release notification or a release page.
 
 ### Build stage
 

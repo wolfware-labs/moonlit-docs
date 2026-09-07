@@ -214,7 +214,7 @@ Does things
 └────────────┴─────────────────────────────┘
 ```
 
-`inspect` also accepts a plugin reference (`oci://…`, `file://…`, `http(s)://…`) instead of a local path, so you can inspect a published plugin the same way. `--output json` prints the same data as JSON, including the icon and each middleware's input and output schema, for scripting.
+`inspect` also accepts a plugin reference (`oci://...`, `file://...`, `http(s)://...`) instead of a local path, so you can inspect a published plugin the same way. `--output json` prints the same data as JSON, including the icon and each middleware's input and output schema, for scripting.
 
 ## Using the Plugin Locally
 

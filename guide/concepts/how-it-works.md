@@ -5,7 +5,7 @@ description: Understand how Moonlit's Rust engine and wasmtime host execute a re
 
 # How Moonlit Works
 
-This page explains the architecture Moonlit uses to turn a YAML pipeline definition into a running release: the `moonlit` CLI, the `moonlit-engine` library it calls into, and the `wasmtime`-based host that runs each plugin as a sandboxed WebAssembly component.
+Three pieces turn a YAML pipeline definition into a running release: the `moonlit` CLI, the `moonlit-engine` library it calls into, and the `wasmtime`-based host that runs each plugin as a sandboxed WebAssembly component. This page walks through all three.
 
 ## Architecture Overview
 
@@ -24,42 +24,42 @@ flowchart TD
 
 ### CLI (`moonlit-cli`)
 
-The `moonlit` binary is a thin UX layer over the engine: it parses command-line arguments, renders progress (spinners, download bars, a live log region per step) and the final execution summary, and maps engine errors to exit codes. It calls into `moonlit-engine` as a library — the CLI itself has no pipeline logic.
+The `moonlit` binary is a thin UX layer over the engine. It parses command-line arguments, renders progress (spinners, download bars, a live log region per step) and the final execution summary, and maps engine errors to exit codes. All of it calls into `moonlit-engine` as a library. There is no pipeline logic in the CLI itself.
 
 ### Engine (`moonlit-engine`)
 
 The engine does the real work, in a few cooperating modules:
 
-- **Config parser** — reads the YAML pipeline file into a structured model, validating its shape and cleaning it up (trimming names, dropping null entries).
-- **Expression/condition engine** — resolves `$(...)` value substitution and evaluates `condition`/`haltIf` expressions (see [Configuration](./configuration.md)).
-- **Plugin resolvers** — one per URL scheme (`oci`, `file`, `http`/`https`) that turn a plugin reference into local component bytes.
-- **Pipeline executor** — walks the flattened list of steps, calling into plugins through the WASM host and tracking results.
+- The config parser reads the YAML pipeline file into a structured model, validating its shape and cleaning it up along the way by trimming names and dropping null entries.
+- The expression and condition engine resolves `$(...)` value substitution and evaluates `condition` and `haltIf` expressions (see [Configuration](./configuration.md)).
+- The plugin resolvers, one per URL scheme (`oci`, `file`, `http`/`https`), turn a plugin reference into local component bytes.
+- The pipeline executor walks the flattened list of steps, calling into plugins through the WASM host and tracking results.
 
 ### WASM host
 
-Plugins are WebAssembly components targeting WASI Preview 2 and the `moonlit:plugin` component-model world. The engine hosts them with `wasmtime`: each plugin gets its own `Store` and component instance, and the host implements the capabilities plugins import — structured logging, reading accumulated configuration, progress reporting, and a permission-gated subprocess API — alongside the standard `wasi:http`, `wasi:filesystem`, and `wasi:cli` interfaces. Because plugins run inside this sandbox rather than as native code, the engine mediates every capability a plugin uses; see [Plugins System](./plugins.md) for how that access is granted.
+Plugins are WebAssembly components targeting WASI Preview 2 and the `moonlit:plugin` component-model world. The engine hosts them with `wasmtime`, giving each plugin its own `Store` and component instance. The host implements the capabilities plugins import, namely structured logging, reads of the accumulated configuration, progress reporting, and a permission-gated subprocess API, alongside the standard `wasi:http`, `wasi:filesystem`, and `wasi:cli` interfaces. Since plugins run inside this sandbox instead of as native code, the engine sits in front of every capability a plugin uses. See [Plugins System](./plugins.md) for how that access is granted.
 
 ## Execution Model
 
 Running a pipeline follows the same sequence regardless of what plugins it uses:
 
-1. **Parse** — the CLI reads the YAML file and the engine turns it into a pipeline configuration.
-2. **Resolve plugins** — the engine resolves and instantiates every plugin listed in `plugins` **in parallel**: pull from the local content-addressed cache or an OCI registry (or read a `file://`/`http(s)://` reference), then instantiate the component in `wasmtime`.
-3. **Flatten stages** — stages are flattened, in declaration order, into a single linear list of steps. Stage names only matter for the `-s`/`--stage` filter (see [Stages and Steps](./stages-steps.md)); they don't create parallel branches or express dependencies beyond ordering.
-4. **Execute steps sequentially.** For each step the engine: checks for cancellation, reports progress, evaluates `condition` (skipping the step if it's falsy), merges the step's `config` over the accumulated configuration with `$(...)` substitution, calls the plugin's `execute` export (bounded by `--step-timeout` when one is set), records a `StepResult` (name, success, skipped, duration, error), logs any warnings, stops the pipeline on failure unless `continueOnError` is set, appends the step's outputs under `output:<stepName>:<key>`, and finally evaluates `haltIf` (cleanly stopping the pipeline if it's truthy).
-5. **Summarize** — a summary table is rendered and the process exits with a code reflecting the outcome.
+1. Parse. The CLI reads the YAML file and the engine turns it into a pipeline configuration.
+2. Resolve plugins. The engine resolves and instantiates every plugin in the `plugins` list in parallel, pulling from the local content-addressed cache or an OCI registry, or reading a `file://` or `http(s)://` reference, and then instantiating the component in `wasmtime`.
+3. Flatten stages. Stages collapse, in declaration order, into a single linear list of steps. Stage names matter only for the `-s`/`--stage` filter (see [Stages and Steps](./stages-steps.md)). They create no parallel branches and express no dependencies beyond ordering.
+4. Execute steps, one after another. For each step the engine checks for cancellation, reports progress, evaluates `condition` and skips the step if it comes back falsy, merges the step's `config` over the accumulated configuration with `$(...)` substitution, calls the plugin's `execute` export (bounded by `--step-timeout` when one is set), records a `StepResult` of name, success, skipped, duration, and error, logs any warnings, stops the pipeline on failure unless `continueOnError` is set, appends the step's outputs under `output:<stepName>:<key>`, and finally evaluates `haltIf`, cleanly stopping the pipeline if it comes back truthy.
+5. Summarize. A summary table is rendered and the process exits with a code reflecting the outcome.
 
 Before step 2 begins, the engine also checks every step's `run:` reference against the middlewares each plugin reports, so an unknown plugin alias or middleware name is a load-time configuration error rather than a failure partway through the run.
 
 ## Plugin Lifetime and Shared State
 
-Each plugin gets **one component instance for the whole pipeline run**, created during plugin resolution and kept alive until the pipeline ends. This lets a plugin keep state in memory across steps: for example, the `git` plugin's `latest-tag` middleware can store the resolved tag SHA in instance memory, and a later `commits` step on the same plugin reads it back. Instances (and their `Store`) are dropped once the pipeline finishes.
+Each plugin gets one component instance for the whole pipeline run, created during plugin resolution and kept alive until the pipeline ends. That lets a plugin hold state in memory across steps. The `git` plugin's `latest-tag` middleware, for instance, can store the resolved tag SHA in instance memory for a later `commits` step on the same plugin to read back. Instances and their `Store` are dropped once the pipeline finishes.
 
 ## Error Handling and Exit Codes
 
 The engine's errors map to a small, doc-promised set of process exit codes: `0` success, `1` general/unexpected error, `2` configuration error, `3` plugin load error, `4` pipeline execution error (a step failed).
 
-By default a failing step stops the pipeline; setting `continueOnError: true` on a step lets the pipeline continue past it. Because `wasmtime` permanently poisons a component's `Store` after a trap, a plugin that traps can't safely keep running for the rest of that pipeline run — so the engine also marks the *plugin* itself unavailable after a trap, and any later step that targets it fails fast rather than silently losing that plugin's in-memory state. A step that exceeds `--step-timeout` is treated the same way, and aborts the run outright even when the step sets `continueOnError`, since its interrupted instance can't be reused.
+A failing step stops the pipeline by default, and `continueOnError: true` on a step lets the run carry on past it. Traps are a separate matter. `wasmtime` permanently poisons a component's `Store` after a trap, so a plugin that traps cannot safely keep running for the rest of the pipeline. The engine marks the *plugin* itself unavailable, and any later step targeting it fails fast instead of quietly losing that plugin's in-memory state. A step that exceeds `--step-timeout` is handled the same way, and it aborts the run outright even with `continueOnError` set, because its interrupted instance cannot be reused.
 
 ## Next Steps
 

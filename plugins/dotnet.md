@@ -20,9 +20,9 @@ plugins:
       filesystem: read-write
 ```
 
-Moonlit is deny-by-default: a plugin with no `permissions:` block gets zero capabilities — see [Sandboxing](../guide/concepts/sandboxing.md) for the full model. The Dotnet plugin shells out to the `dotnet` CLI, so it needs `exec: ["dotnet"]`; `pack` and `test` write their output into a `.moonlit/` directory under the working directory (wiped and recreated each run), so the plugin also needs `filesystem: read-write`.
+Moonlit is deny-by-default, so a plugin with no `permissions:` block gets zero capabilities. [Sandboxing](../guide/concepts/sandboxing.md) has the full model. The Dotnet plugin shells out to the `dotnet` CLI, so it needs `exec: ["dotnet"]`; `pack` and `test` write their output into a `.moonlit/` directory under the working directory (wiped and recreated each run), so the plugin also needs `filesystem: read-write`.
 
-Plugin-level config: `nugetSource` (default `https://api.nuget.org/v3/index.json`) and `nugetApiKey` (default `""`, used as the fallback for `push`). `apiKey` is accepted as an alias of `nugetApiKey` — `nugetApiKey` wins when both are set.
+Plugin-level config: `nugetSource` (default `https://api.nuget.org/v3/index.json`) and `nugetApiKey` (default `""`, used as the fallback for `push`). `apiKey` is accepted as an alias of `nugetApiKey`, and `nugetApiKey` wins when both are set.
 
 ## build
 
@@ -38,7 +38,7 @@ Build a project with SemVer-derived assembly metadata, without packing it.
 | `configuration` | Optional, default `Release` | Build configuration. |
 | `noRestore` | Optional, default `false` | Passes `--no-restore`. |
 
-No outputs. `dotnet build <project> -p:AssemblyVersion=… -p:FileVersion=… -p:InformationalVersion=… --configuration <configuration> [--no-restore]`. Any of the three version fields left unresolved (no `version` and no explicit override) fails the step.
+No outputs. Runs `dotnet build <project> -p:AssemblyVersion=... -p:FileVersion=... -p:InformationalVersion=... --configuration <configuration> [--no-restore]`. If any of the three version fields is left unresolved, meaning no `version` and no explicit override, the step fails.
 
 ## pack
 

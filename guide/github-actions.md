@@ -119,6 +119,6 @@ The store addresses plugin content by sha256, so a stale content entry is a cach
 wrong plugin. The store also keeps each mutable tag's resolution to a digest for 15 minutes, and
 that record is cached along with everything else: a job that starts within 15 minutes of the run
 that primed the cache resolves a tag to the digest seen back then, without asking the registry
-again. Pin plugins by digest (`@sha256:…`) if that window matters to you.
+again. Pin plugins by digest (`@sha256:...`) if that window matters to you.
 
 Set `cache: 'false'` to turn it off.

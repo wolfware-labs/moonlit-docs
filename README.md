@@ -82,7 +82,7 @@ copies it into the build output alongside the generated pages.
 
 ## Deployment
 
-`Dockerfile` builds the site and serves it from nginx. `release.yml` — itself a Moonlit pipeline —
+`Dockerfile` builds the site and serves it from nginx. `release.yml`, itself a Moonlit pipeline,
 analyzes commits, calculates the next version, builds and pushes `wolfware/moonlit-docs`, and opens
 a GitHub release.
 

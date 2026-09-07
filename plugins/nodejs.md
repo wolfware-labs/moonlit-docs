@@ -20,7 +20,7 @@ plugins:
       filesystem: read-write
 ```
 
-Moonlit is deny-by-default: a plugin with no `permissions:` block gets zero capabilities — see [Sandboxing](../guide/concepts/sandboxing.md) for the full model. The NodeJs plugin shells out to the `npm` CLI, so it needs `exec: ["npm"]`; `pack` writes a tarball and `push` writes a scoped `.npmrc` (then removes it) under the working directory, so the plugin also needs `filesystem: read-write`.
+Moonlit is deny-by-default, so a plugin with no `permissions:` block gets zero capabilities. [Sandboxing](../guide/concepts/sandboxing.md) has the full model. The NodeJs plugin shells out to the `npm` CLI, so it needs `exec: ["npm"]`; `pack` writes a tarball and `push` writes a scoped `.npmrc` (then removes it) under the working directory, so the plugin also needs `filesystem: read-write`.
 
 Plugin-level config: `registry` (default `https://registry.npmjs.org`) and `token` (default `""`, used as the fallback for `push`).
 
@@ -46,7 +46,7 @@ Run a `package.json` script.
 | `script` | **Required** | The script name. |
 | `args` | Optional array | Forwarded after `--`. |
 
-No outputs. `npm run <script> [-- args…]`. A missing script fails with `"Script '<script>' not found in package.json."`
+No outputs. Runs `npm run <script> [-- args...]`. A missing script fails with `"Script '<script>' not found in package.json."`
 
 ## build
 
@@ -88,7 +88,7 @@ Publish a tarball to an npm registry.
 | `tag` | Optional, default `latest` | Passed as `--tag`. |
 | `access` | Optional | Passed as `--access` (e.g. `public`/`restricted`). |
 
-No outputs. The token is written to a scoped `.npmrc` under `.moonlit/npm-push/` (owner-only permissions on Unix) and passed via `--userconfig`, keeping it off the process argv; the file is removed again after the run. `npm publish <package> --registry <registry> --tag <tag> [--access …] --userconfig <path>`. A `401`/`403` response maps to an authentication-error failure; a version conflict (`EPUBLISHCONFLICT`/`409`) maps to `"Version already published."`
+No outputs. The token is written to a scoped `.npmrc` under `.moonlit/npm-push/` with owner-only permissions on Unix, then passed via `--userconfig` so it never reaches the process argv, and the file is removed once the run finishes. Runs `npm publish <package> --registry <registry> --tag <tag> [--access ...] --userconfig <path>`. A `401` or `403` response maps to an authentication-error failure, and a version conflict (`EPUBLISHCONFLICT` or `409`) maps to `"Version already published."`
 
 ## test
 

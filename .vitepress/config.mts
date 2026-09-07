@@ -185,7 +185,7 @@ export default withMermaid({
             { text: 'Overview', link: '/cookbook/' },
             { text: 'Docker Deployment', link: '/cookbook/docker-deployment' },
             { text: 'NuGet Release', link: '/cookbook/nuget-release' },
-            { text: 'Semantic-release → GitHub', link: '/cookbook/semantic-release-github' },
+            { text: 'Semantic-release to GitHub', link: '/cookbook/semantic-release-github' },
             { text: 'npm Release', link: '/cookbook/npm-release' },
             { text: 'GitLab Release', link: '/cookbook/gitlab-release' },
             { text: 'Publish a Plugin', link: '/cookbook/publish-plugin' }

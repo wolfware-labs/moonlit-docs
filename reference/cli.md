@@ -89,7 +89,7 @@ moonlit plugin new <name> [--namespace <org>] [--description <text>] [--license 
 | `--namespace <org>` | Publish namespace. On a TTY, prompted with your `git config user.name` (or `my-org`) as the default; used as-is without a prompt when passed. |
 | `--description <text>` | One-line crate description. Prompted on a TTY; empty by default. |
 | `--license <spdx-id>` | SPDX license expression. On a TTY, a menu offers `MIT OR Apache-2.0` (recommended), `Apache-2.0`, `MIT`, and `Elastic-2.0`; any expression can be passed directly. Defaults to `MIT OR Apache-2.0`. |
-| `--pdk-path <path>` | Emit a local `path = …` dependency on `moonlit-pdk` instead of a published crates.io version, for developing the PDK and a plugin together. |
+| `--pdk-path <path>` | Emit a local `path = ...` dependency on `moonlit-pdk` instead of a published crates.io version, for developing the PDK and a plugin together. |
 
 Interactive prompts only appear when both stdin and stderr are a TTY; otherwise every unset flag falls back to its default.
 
@@ -122,7 +122,7 @@ Prints a component's metadata (name, version, description) and the middlewares i
 moonlit plugin inspect <path|ref>
 ```
 
-`<path|ref>` accepts either a path to a built `.wasm` component, or a plugin reference (`oci://…`, `file://…`, `http(s)://…`); see [plugin URL schemes](./config-file.md#plugin-url-schemes). A reference is resolved (and pulled if not cached) the same way the engine resolves plugins for a run.
+`<path|ref>` accepts either a path to a built `.wasm` component or a plugin reference (`oci://...`, `file://...`, `http(s)://...`); see [plugin URL schemes](./config-file.md#plugin-url-schemes). A reference is resolved (and pulled if not cached) the same way the engine resolves plugins for a run.
 
 `--output` controls the rendering: `pretty` prints a table, `plain` prints one middleware per line, and `json` prints an object with `name`, `version`, `description`, `icon` (a data URI, or `null`), and a `middlewares` array whose entries carry `name`, `description`, `inputSchema`, and `outputSchema` (JSON Schema objects, or `null` when the plugin does not declare them).
 

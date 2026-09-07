@@ -5,7 +5,7 @@ description: Documentation for the Moonlit plugin in Moonlit
 
 # Moonlit Plugin
 
-Run nested Moonlit release files — monorepo modules or submodules — by invoking the `moonlit` CLI recursively.
+Run nested Moonlit release files, such as monorepo modules or submodules, by invoking the `moonlit` CLI recursively.
 
 ## Reference
 
@@ -17,7 +17,7 @@ plugins:
       exec: ["moonlit"]
 ```
 
-Moonlit is deny-by-default: a plugin with no `permissions:` block gets zero capabilities — see [Sandboxing](../guide/concepts/sandboxing.md) for the full model. The Moonlit plugin shells out to the `moonlit` binary to run each nested module, so it needs `exec: ["moonlit"]`. No plugin-level config.
+Moonlit is deny-by-default, so a plugin with no `permissions:` block gets zero capabilities. [Sandboxing](../guide/concepts/sandboxing.md) has the full model. The Moonlit plugin shells out to the `moonlit` binary to run each nested module, so it needs `exec: ["moonlit"]`. No plugin-level config.
 
 ## run-modules
 
@@ -25,7 +25,7 @@ Run one or more nested release files, one child `moonlit run` invocation per mod
 
 | Config | Required / Default | Meaning |
 |---|---|---|
-| `modulePaths` | **Required**, non-empty array | Paths (relative to the working directory) to run. A path ending in `.yml`/`.yaml` (case-insensitive) is treated as a file — its parent directory becomes `-w` and its basename becomes `-f`; any other path is treated as a directory passed as `-w` with no `-f` (the child resolves `release.yml` or `release.yaml` itself). |
+| `modulePaths` | **Required**, non-empty array | Paths to run, relative to the working directory. A path ending in `.yml` or `.yaml`, case-insensitive, is treated as a file: its parent directory becomes `-w` and its basename becomes `-f`. Any other path is treated as a directory passed as `-w` with no `-f`, leaving the child to resolve `release.yml` or `release.yaml` itself. |
 | `stages` | Optional array | Each entry forwarded as its own `-s`. |
 | `continueOnModuleError` | Optional, default `false` | When `true`, a failing module doesn't stop the remaining modules. |
 | `arguments` | Optional map | Each entry forwarded as `-a key=value`. |

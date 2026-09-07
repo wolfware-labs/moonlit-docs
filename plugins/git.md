@@ -17,7 +17,7 @@ plugins:
       exec: ["git"]
 ```
 
-Moonlit is deny-by-default: a plugin with no `permissions:` block gets zero capabilities. The Git plugin shells out to the `git` binary, so it needs the `exec: ["git"]` grant — see [Sandboxing](../guide/concepts/sandboxing.md) for the full permission model.
+Moonlit is deny-by-default, so a plugin with no `permissions:` block gets zero capabilities. The Git plugin shells out to the `git` binary, so it needs the `exec: ["git"]` grant. See [Sandboxing](../guide/concepts/sandboxing.md) for the full permission model.
 
 Every middleware discovers the repository by walking up from the working directory until it finds a `.git` directory; if none exists, the step fails with `Not a git repository (or any of the parent directories)`.
 

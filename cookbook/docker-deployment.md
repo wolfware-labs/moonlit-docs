@@ -94,7 +94,7 @@ stages:
 
 ### Plugins
 
-Three plugins: **Git** (repository context and version boundary), **Semantic Release** (conventional-commit parsing and version calculation), and **Docker** (login, buildx setup, build/push, deploy). Git needs only `exec: ["git"]`. Semantic Release needs no `permissions:` block at all — it works entirely from the commit data it's given. Docker needs `exec: ["docker"]`, since every one of its middlewares shells out to the `docker` CLI, plus `env: ["MOONLIT_DOCKER_BUILDX_BUILDER"]`, since `build-and-push` falls back to that environment variable when no `builder` config or prior `setup-buildx` state is available. See [Sandboxing](../guide/concepts/sandboxing.md) for the full permission model.
+Three plugins: **Git** (repository context and version boundary), **Semantic Release** (conventional-commit parsing and version calculation), and **Docker** (login, buildx setup, build/push, deploy). Git needs only `exec: ["git"]`. Semantic Release needs no `permissions:` block at all, since it works entirely from the commit data it is given. Docker needs `exec: ["docker"]`, since every one of its middlewares shells out to the `docker` CLI, plus `env: ["MOONLIT_DOCKER_BUILDX_BUILDER"]`, since `build-and-push` falls back to that environment variable when no `builder` config or prior `setup-buildx` state is available. See [Sandboxing](../guide/concepts/sandboxing.md) for the full permission model.
 
 ### Analyze stage
 
@@ -102,13 +102,13 @@ Three plugins: **Git** (repository context and version boundary), **Semantic Rel
 
 ### Publish stage
 
-1. `docker.login` authenticates to the registry, with the password fed via stdin — never on the process argv.
+1. `docker.login` authenticates to the registry, feeding the password in over stdin so it never lands on the process argv.
 2. `docker.setup-buildx` creates a buildx builder for multi-platform builds and emits its `name`, which the next step picks up.
 3. `docker.build-and-push` builds the image for both platforms and pushes it, tagged with the calculated version and `latest`.
 
 ### Deploy stage
 
-`docker.deploy` runs `docker compose -f <composeFile> up -d --pull always` against the remote host, with `DOCKER_HOST` set to `host` (e.g. `ssh://user@host`) for the duration of the call. The step only runs on `main`, guarded by `condition`. Both `host` and `composeFile` are required — a blank value fails the step. `environment` entries (here, `APP_VERSION`) are set on the `docker compose` child process so the compose file can reference them; `pull` defaults to `true`. There's no `service` config here — setting one fails with `"Swarm deploys are not supported yet."`, since the MVP only supports the compose path. `deploy` produces no outputs.
+`docker.deploy` runs `docker compose -f <composeFile> up -d --pull always` against the remote host, with `DOCKER_HOST` set to `host` (e.g. `ssh://user@host`) for the duration of the call. The step only runs on `main`, guarded by `condition`. Both `host` and `composeFile` are required, and a blank value fails the step. `environment` entries, `APP_VERSION` here, are set on the `docker compose` child process so the compose file can reference them, and `pull` defaults to `true`. There is deliberately no `service` config: setting one fails with `"Swarm deploys are not supported yet."`, because the MVP supports only the compose path. `deploy` produces no outputs.
 
 ## Run it
 

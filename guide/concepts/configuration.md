@@ -5,7 +5,11 @@ description: Learn how Moonlit's configuration accumulator, value substitution, 
 
 # Configuration
 
-Moonlit pipelines are YAML files. This page explains the pieces that make pipeline configuration dynamic: the **accumulator** that layers configuration from multiple sources, `$(...)` value substitution, `condition`/`haltIf` expressions, and scalar coercion. For the full property-by-property schema, see the [Configuration File Reference](../../reference/config-file.md).
+Moonlit pipelines are YAML files. Most of what makes them dynamic comes from four pieces: the
+accumulator that layers configuration from several sources, `$(...)` value substitution,
+`condition` and `haltIf` expressions, and scalar coercion. This page covers all four. For the full
+property-by-property schema, see the
+[Configuration File Reference](../../reference/config-file.md).
 
 ## Configuration File Structure
 
@@ -26,34 +30,49 @@ stages:
         # Step-specific configuration
 ```
 
-- **name** — the pipeline's name
-- **plugins** — the plugins used by the pipeline (see [Plugins System](./plugins.md))
-- **stages** — an ordered map of stage name to a list of steps (see [Stages and Steps](./stages-steps.md))
-- **variables** — a map of values you can reference throughout the pipeline
-- **arguments** — a map of values that can be overridden from the command line
+- `name` is the pipeline's name.
+- `plugins` lists the plugins the pipeline uses (see [Plugins System](./plugins.md)).
+- `stages` is an ordered map of stage name to a list of steps (see
+  [Stages and Steps](./stages-steps.md)).
+- `variables` holds values you can reference throughout the pipeline.
+- `arguments` holds values that can be overridden from the command line.
 
 ## The Accumulator: Configuration Layering
 
-Moonlit builds configuration as an ordered stack of layers, resolved in this order, where **later layers win**:
+Moonlit builds configuration as an ordered stack of layers. Later layers win:
 
-1. **Base layer** — a `.env` file in the working directory, plus environment variables prefixed `MOONLIT_` (prefix stripped); on a name collision the environment variable wins.
-2. **Release layer** — `vars:<name>` and `args:<name>` from the YAML's `variables`/`arguments` sections. CLI `--arg key=value` entries override the YAML `arguments`.
-3. **Plugin layer** (per plugin, at load time) — the plugin's `config:` block, `$(...)`-substituted against layers 1–2.
-4. **Step layers** (during the run) — each step's `config:`, substituted against everything accumulated so far.
-5. **Output layers** — after each step, its outputs are flattened into the accumulator under `output:<stepName>:<key>`. Nested structures flatten with `:` and numeric indices for arrays, e.g. `output:commits:details:0:sha`.
+1. The base layer: a `.env` file in the working directory, plus environment variables prefixed
+   `MOONLIT_` with the prefix stripped. On a name collision the environment variable wins.
+2. The release layer: `vars:<name>` and `args:<name>` from the YAML's `variables` and `arguments`
+   sections. A CLI `--arg key=value` entry overrides the YAML `arguments`.
+3. The plugin layer, one per plugin at load time: the plugin's `config:` block, `$(...)`-substituted
+   against layers 1 and 2.
+4. The step layers, during the run: each step's `config:`, substituted against everything
+   accumulated so far.
+5. The output layers: after each step, its outputs are flattened into the accumulator under
+   `output:<stepName>:<key>`. Nested structures flatten with `:`, and arrays use numeric indices, so
+   you get paths like `output:commits:details:0:sha`.
 
-This layering is why a later step can read an earlier step's output, and why plugin-level config can be overridden per step.
+This layering is what lets a later step read an earlier step's output, and what lets a step override
+plugin-level config for its own call.
 
 ## `$(...)` Value Substitution
 
 Anywhere in your configuration, `$(...)` resolves a path against the accumulator described above. The inner text can't contain a `)`.
 
-There are two substitution modes:
+There are two substitution modes.
 
-- **Whole-string** — when the entire value is a single `$(...)` expression (e.g. `commits: $(output:commits:details)`), it's replaced by the *resolved value itself*, which may be a string, a map, or a list. This is how structured data — not just strings — flows between steps. A missing key resolves to `null`.
-- **Embedded** — when `$(...)` appears inside a larger string (e.g. `"v$(output:version:nextVersion)"`), each occurrence is replaced by the value's string form. A missing key is replaced with an empty string.
+Whole-string substitution happens when the entire value is a single `$(...)` expression, as in
+`commits: $(output:commits:details)`. The expression is replaced by the *resolved value itself*,
+which may be a string, a map, or a list. That is how maps and lists, and not only strings, travel
+between steps. A missing key resolves to `null`.
 
-An empty or whitespace-only input resolves to `null`; a string with no `$(...)` at all is returned unchanged.
+Embedded substitution happens when `$(...)` appears inside a larger string, as in
+`"v$(output:version:nextVersion)"`. Each occurrence is replaced by the value's string form, and a
+missing key is replaced with an empty string.
+
+An empty or whitespace-only input resolves to `null`. A string containing no `$(...)` at all comes
+back unchanged.
 
 ### Default Values
 
@@ -122,15 +141,21 @@ haltIf: "!output.version.hasNewVersion"
 A few things to know about how these are evaluated:
 
 - Supported operators: `==`, `!=`, `>`, `<`, `>=`, `<=`, `&&`, `||`, `!`, parentheses, string literals (single or double quotes), and numeric literals.
-- Both dot-notation (`output.version.hasNewVersion`) and `$(...)` substitution (`$(output:version:hasNewVersion)`) work — `$(...)` substitution runs over the condition string *before* it's evaluated (a resolved value is inlined as a boolean, number, or quoted string), and identifier resolution is case-insensitive.
+- Both dot-notation (`output.version.hasNewVersion`) and `$(...)` substitution
+  (`$(output:version:hasNewVersion)`) work. Substitution runs over the condition string *before*
+  evaluation, inlining a resolved value as a boolean, a number, or a quoted string. Identifier
+  resolution is case-insensitive.
 - Values are coerced before comparison, so `output.version.isPrerelease == true` compares booleans and `output.test.failed > 0` compares numbers. Datetime-shaped strings compare as datetimes.
 - Expressions run in a bounded evaluator with no access to the filesystem, network, or environment; only `output` is in scope.
 - Anything other than a boolean `true` result is treated as `false`.
-- If a `condition` fails to evaluate, Moonlit logs a warning and treats it as `false` (the step is skipped) — evaluation errors don't abort the pipeline. A `haltIf` that fails to evaluate, by contrast, **fails the step** with a diagnostic: a broken halt guard silently continuing would be more dangerous than stopping.
+- A `condition` that fails to evaluate logs a warning and counts as `false`, so the step is
+  skipped and the pipeline carries on. A `haltIf` that fails to evaluate fails the step with a
+  diagnostic instead, on the reasoning that a broken halt guard quietly letting the run continue is
+  worse than stopping.
 
 ## Scalar Coercion
 
-Configuration values are parsed as raw strings and only coerced to a typed value when a middleware binds them, or when building a condition's `output` scope. The coercion order is fixed: `bool` (`true`/`false`, case-insensitive) → integer → floating point → datetime → fallback to `string`. Datetimes are recognized in RFC 3339 form with an offset, as `YYYY-MM-DDTHH:MM:SS` or `YYYY-MM-DD HH:MM:SS` (taken as UTC), or as a bare `YYYY-MM-DD` date.
+Configuration values are parsed as raw strings and only coerced to a typed value when a middleware binds them, or when building a condition's `output` scope. The coercion order is fixed: `bool` first (`true` or `false`, case-insensitive), then integer, then floating point, then datetime, and `string` if nothing else matched. Datetimes are recognized in RFC 3339 form with an offset, as `YYYY-MM-DDTHH:MM:SS` or `YYYY-MM-DD HH:MM:SS` (taken as UTC), or as a bare `YYYY-MM-DD` date.
 
 ## Example: Complete Configuration
 

@@ -19,11 +19,11 @@ Because plugins are WebAssembly components rather than native code, they run the
 
 ## Who it's for
 
-Moonlit is for teams who want to describe a release pipeline — build, tag, changelog, publish, notify — once in YAML and run it the same way locally and in CI, without trusting arbitrary native plugin code with the host machine.
+Moonlit is for teams who want to describe a release pipeline once in YAML, covering build, tag, changelog, publish, and notify, then run it the same way locally and in CI without handing the host machine over to arbitrary native plugin code.
 
 ## Open Source
 
-Moonlit is open source, dual-licensed under MIT OR Apache-2.0 — free to use, self-host, and extend inside your own products and pipelines.
+Moonlit is open source, dual-licensed under MIT OR Apache-2.0, so you can use it, self-host it, and extend it inside your own products and pipelines.
 
 ## Next Steps
 

@@ -4,7 +4,7 @@ layout: home
 hero:
   name: "Moonlit"
   text: "Bring light to your release process"
-  tagline: A Rust and WebAssembly build and release automation engine. Declare your pipeline in YAML — sandboxed WASM plugins do the rest. Open source under MIT OR Apache-2.0.
+  tagline: A Rust and WebAssembly build and release automation engine. Declare your pipeline in YAML and sandboxed WASM plugins do the rest. Open source under MIT OR Apache-2.0.
   image:
     src: /logo.png
     alt: Moonlit
@@ -19,7 +19,7 @@ hero:
 features:
   - icon: 🦀
     title: Rust + WebAssembly Engine
-    details: A single native binary built in Rust. Pipelines run on a wasmtime-based host that executes sandboxed WebAssembly plugin components — no separate runtime to install.
+    details: A single native binary built in Rust. Pipelines run on a wasmtime-based host that executes sandboxed WebAssembly plugin components, with no separate runtime to install.
 
   - icon: 📝
     title: Declarative YAML Pipelines
@@ -27,7 +27,7 @@ features:
 
   - icon: 🔒
     title: Sandboxed Plugins
-    details: Every plugin runs sandboxed by default. Grant only what a plugin needs — network hosts, executable programs, environment variables, filesystem access — through per-plugin capability grants.
+    details: Every plugin runs sandboxed by default. Per-plugin capability grants hand over only what a plugin needs, from network hosts and executable programs to environment variables and filesystem access.
 
   - icon: 📦
     title: OCI Plugin Distribution
@@ -39,14 +39,14 @@ features:
 
   - icon: ⚖️
     title: Open Source
-    details: Moonlit is open source, dual-licensed under MIT OR Apache-2.0 — free to use, self-host, and extend inside your own products and pipelines.
+    details: Moonlit is open source, dual-licensed under MIT OR Apache-2.0, so you can use it, self-host it, and extend it inside your own products and pipelines.
 ---
 
 ## What is Moonlit?
 
 Moonlit is a build and release automation engine built on Rust and WebAssembly. A single YAML file declares the plugins, stages, and steps of your release pipeline; a `wasmtime`-based host executes that pipeline, running each plugin as a sandboxed WebAssembly component.
 
-Because plugins are WASM components rather than native code, they can be written in any language that compiles to a WASI Preview 2 component, run the same way on every platform, and are sandboxed by default — you decide what network access, filesystem access, environment variables, and subprocesses each plugin is allowed.
+Because plugins are WASM components rather than native code, they can be written in any language that compiles to a WASI Preview 2 component, and they run the same way on every platform. They are also sandboxed by default, so you decide what network access, filesystem access, environment variables, and subprocesses each one gets.
 
 ## Installation
 

@@ -5,9 +5,9 @@ description: Overview of the official plugins available for Moonlit
 
 # Plugins Overview
 
-Moonlit's functionality is extended entirely through plugins. A plugin is a WebAssembly component, typically resolved from an `oci://` reference in your `plugins:` list, that exports one or more middlewares — invoked from a pipeline step as `run: name.middleware`, where `name` is the alias you gave the plugin. See [Plugins System](../guide/concepts/plugins.md) for how plugins are loaded and executed.
+Moonlit's functionality is extended entirely through plugins. A plugin is a WebAssembly component, usually resolved from an `oci://` reference in your `plugins:` list, and it exports one or more middlewares. A pipeline step invokes one with `run: name.middleware`, where `name` is the alias you gave the plugin. See [Plugins System](../guide/concepts/plugins.md) for how plugins are loaded and executed.
 
-Moonlit is deny-by-default: a plugin gets **no** capabilities unless you grant them explicitly with a `permissions:` block — no network, no subprocesses, no environment variables, no filesystem access. Each plugin page below documents the exact grant it needs. See [Sandboxing](../guide/concepts/sandboxing.md) for the full permission model.
+Moonlit is deny-by-default. Without an explicit `permissions:` block a plugin gets nothing: no network, no subprocesses, no environment variables, no filesystem access. Each plugin page below documents the exact grant that plugin needs. See [Sandboxing](../guide/concepts/sandboxing.md) for the full permission model.
 
 The first-party plugins are developed in the [`moonlit-plugins`](https://github.com/wolfware-labs/moonlit-plugins) repository. `moonlit plugin inspect <ref>` prints any plugin's middlewares straight from the component, including the config keys and outputs each one declares.
 

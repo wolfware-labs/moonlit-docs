@@ -15,7 +15,7 @@ A step-by-step CLI workflow that scaffolds a Rust plugin crate, builds it into a
 
 ## 1. Scaffold
 
-Scaffolding is optional — you can also start from an existing crate — but it's the fastest way to get a working plugin skeleton:
+Scaffolding is optional, since you can start from an existing crate instead, but it is the fastest way to get a working plugin skeleton:
 
 ```bash
 moonlit plugin new my-plugin --namespace acme --license "MIT OR Apache-2.0"
@@ -57,7 +57,7 @@ This writes the credential to `~/.config/moonlit/credentials.toml` with `0600` p
 moonlit plugin publish oci://ghcr.io/acme/my-plugin:1.0.0
 ```
 
-This pushes the release build to the registry, attaching provenance metadata — the crate's `repository`, `license`, and the resolved `moonlit-pdk` version — read from `Cargo.toml` and `Cargo.lock`.
+This pushes the release build to the registry, attaching provenance metadata read from `Cargo.toml` and `Cargo.lock`: the crate's `repository`, its `license`, and the resolved `moonlit-pdk` version.
 
 ## Use it in a pipeline
 

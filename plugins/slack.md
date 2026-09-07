@@ -19,9 +19,9 @@ plugins:
       network: ["slack.com"]
 ```
 
-Moonlit is deny-by-default: a plugin with no `permissions:` block gets zero capabilities — see [Sandboxing](../guide/concepts/sandboxing.md) for the full model. The Slack plugin calls the Slack Web API, so it needs `network: ["slack.com"]`.
+Moonlit is deny-by-default, so a plugin with no `permissions:` block gets zero capabilities. [Sandboxing](../guide/concepts/sandboxing.md) has the full model. The Slack plugin calls the Slack Web API, so it needs `network: ["slack.com"]`.
 
-The plugin-level `token` is required — a blank value fails plugin load with `Slack API token is required.`
+The plugin-level `token` is required, and a blank value fails plugin load with `Slack API token is required.`
 
 ## send-notification
 

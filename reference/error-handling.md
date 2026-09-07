@@ -44,7 +44,7 @@ With `--output json`, a top-level failure is printed to stdout as a single JSON 
 During a run, `--output json` also emits one JSON object per line for every pipeline event as it happens, each tagged with a `type` field: `plugin_resolving`, `plugin_pull_progress`, `plugin_ready`, `step_started`, `step_log`, `step_progress`, `step_skipped`, `step_finished`, `pipeline_halted`, and `pipeline_finished`. For example:
 
 ```json
-{"type":"step_log","step":"build","level":"info","message":"Restoring packages…"}
+{"type":"step_log","step":"build","level":"info","message":"Restoring packages..."}
 {"type":"step_finished","step":"build","result":{"name":"build","successful":true,"skipped":false,"duration_ms":210,"error_message":null,"warnings":[]}}
 ```
 
@@ -96,13 +96,13 @@ Durations are integer milliseconds. This makes `--output json` suitable for CI s
 
 ### Denied Capability at Run Time
 
-**Symptom**: A step logs a warning such as `blocked from connecting to 'uploads.github.com' — add it to the plugin's permissions.network` or `blocked from running 'docker' — add it to permissions.exec`, and the step then fails or misbehaves.
+**Symptom**: A step logs a warning such as `blocked from connecting to 'uploads.github.com': add it to the plugin's permissions.network` or `blocked from running 'docker': add it to permissions.exec`, and the step then fails or misbehaves.
 
 **Fix**: Grant the capability in the plugin's `permissions:` block. The warning names the exact host or program and the key that allows it. See [Sandboxing](../guide/concepts/sandboxing.md).
 
 ### Plugin Failed to Load
 
-**Symptom**: The plugin-resolution phase reports `failed to load plugin '<name>': …` and the run stops with exit code `3`. The message says why: the plugin couldn't be pulled (`plugin not found`, `network error while resolving plugin`), its content digest didn't match, authentication failed (`authentication failed for registry`), the artifact isn't a Moonlit plugin (`not a Moonlit/wasm plugin artifact`), it failed to instantiate, or its `init` rejected the plugin-level `config:` (for example `GitHub token is not configured.`).
+**Symptom**: The plugin-resolution phase reports `failed to load plugin '<name>': ...` and the run stops with exit code `3`. The message says why: the plugin couldn't be pulled (`plugin not found`, `network error while resolving plugin`), its content digest didn't match, authentication failed (`authentication failed for registry`), the artifact isn't a Moonlit plugin (`not a Moonlit/wasm plugin artifact`), it failed to instantiate, or its `init` rejected the plugin-level `config:` (for example `GitHub token is not configured.`).
 
 **Fix**: Check registry credentials (`moonlit login <host>`), network access to the registry, that the referenced tag or digest exists, and that the plugin's `config:` block carries what it requires. With `--offline`, a cache miss is reported as `offline: no cached plugin for <ref>` instead of attempting a pull.
 

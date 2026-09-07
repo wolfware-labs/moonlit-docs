@@ -86,7 +86,7 @@ build time.
 
 For `init`, when a `config:` type is declared the macro decodes it, calls
 `PluginConfig::validate`, and stores it for the life of the instance; an `Err` from either step
-aborts `init` with that message (or an `"invalid plugin config: …"` wrapper for a decode failure).
+aborts `init` with that message, or with an `"invalid plugin config: ..."` wrapper for a decode failure.
 
 ## The `Middleware` trait
 
@@ -174,14 +174,14 @@ pub trait PluginConfig {
 
 `moonlit_plugin!` calls `validate` right after decoding `config:` in `init`; the returned message
 surfaces verbatim as the `init` error (unlike a decode failure, which gets an
-`"invalid plugin config: …"` wrapper). The first-party GitHub plugin, for example, returns
+`"invalid plugin config: ..."` wrapper). The first-party GitHub plugin, for example, returns
 `GitHub token is not configured.` when its `token` is blank.
 
 ## `Shared<T>`: mutable plugin state
 
 `moonlit_plugin! { state: T }` installs `T` in a `static`, so it must be `Sync`. `Shared<T>` is
 an interior-mutable cell that provides that while staying ergonomic: `get()` clones the value
-out, `set(value)` replaces it, and `update(|v| …)` mutates in place. A `Default` `T` gives a
+out, `set(value)` replaces it, and `update(|v| ...)` mutates in place. A `Default` `T` gives a
 `Default` `Shared<T>`. The `git` plugin uses it to hand the tag SHA found by `latest-tag` to a
 later `commits` step:
 

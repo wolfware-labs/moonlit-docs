@@ -11,7 +11,7 @@ This guide walks you through writing a minimal `release.yml` and running it with
 
 Before you begin, make sure you have:
 
-- [Installed Moonlit](./installation.md) — `moonlit version` should print its version banner
+- [Installed Moonlit](./installation.md), so that `moonlit version` prints its version banner
 - A Git repository with an `origin` remote (the example pipeline reads it)
 
 ## Step 1: Create a Configuration File
@@ -34,9 +34,9 @@ stages:
 ```
 
 - **plugins** lists the WebAssembly components your pipeline needs, each pulled from an OCI registry via an `oci://` reference.
-- **permissions** grants a plugin the host access it needs — here, `exec: ["git"]` lets it run the `git` CLI. Moonlit denies everything by default, so a plugin with no `permissions` block gets no capabilities at all.
+- `permissions` grants a plugin the host access it needs. Here, `exec: ["git"]` lets it run the `git` CLI. Moonlit denies everything by default, so a plugin with no `permissions` block gets no capabilities at all.
 - **stages** is an ordered map of stage name to a list of steps.
-- Each step has a **name** (used to namespace its outputs) and a **run** value of the form `plugin.middleware` — here, `git.repo-context`, where `git` is the plugin's `name` and `repo-context` is the middleware it exports.
+- Each step has a `name`, which namespaces its outputs, and a `run` value of the form `plugin.middleware`. In this case that is `git.repo-context`, where `git` is the plugin's `name` and `repo-context` is the middleware it exports.
 
 ## Step 2: Validate the Pipeline
 
@@ -46,7 +46,7 @@ Before running it, check that the file parses, the plugin resolves, and every `r
 moonlit validate
 ```
 
-`moonlit validate` parses the YAML, resolves the plugins it references, and verifies the middleware names — without executing anything.
+`moonlit validate` parses the YAML, resolves the plugins it references, and verifies the middleware names, all without executing anything.
 
 ## Step 3: Preview With a Dry Run
 

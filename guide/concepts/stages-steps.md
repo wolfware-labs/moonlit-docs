@@ -5,11 +5,11 @@ description: Learn how Moonlit organizes pipeline execution with stages and step
 
 # Stages and Steps
 
-Moonlit organizes your release pipeline into stages and steps, providing a structured way to define and execute your automation tasks. This page explains how stages and steps work.
+A Moonlit pipeline is organized into stages, and each stage holds an ordered list of steps. This page covers how both work.
 
 ## Stages
 
-Stages are named groupings of steps in your release pipeline. They let you organize a pipeline into phases — build, test, publish — and give you a way to run a subset of the pipeline by name.
+A stage is a named group of steps. Stages let you split a pipeline into phases like build, test, and publish, and they give you a way to run part of the pipeline by name.
 
 ### Defining Stages
 
@@ -29,7 +29,7 @@ stages:
 
 ### Stage Execution
 
-At run time, the engine **flattens all stages, in declaration order, into a single linear list of steps** and executes them one after another. Stage names don't create parallel branches; they exist for organization and for the `-s`/`--stage` filter:
+At run time the engine flattens all stages, in declaration order, into a single linear list of steps and executes them one after another. Stage names create no parallel branches. They are there for organization and for the `-s`/`--stage` filter:
 
 ```bash
 moonlit run -s build,test
@@ -37,7 +37,7 @@ moonlit run -s build,test
 
 This runs only the steps under the `build` and `test` stages, skipping any others. `-s` accepts both repeated flags and a comma-separated list, and stage names are matched case-insensitively.
 
-Because stages flatten into one list, there's an implicit dependency on declaration order: a stage's steps only run after every step declared before it has completed. If a step fails, the pipeline stops by default, unless that step sets `continueOnError`.
+Flattening into one list means declaration order is the dependency order: a stage's steps run only after every step declared before them has finished. If a step fails, the pipeline stops by default, unless that step sets `continueOnError`.
 
 ## Steps
 
@@ -58,12 +58,18 @@ stages:
 
 Each step has:
 
-- **name** — a unique identifier for the step; also the key under which its outputs are exposed (`output:<name>:<key>`)
-- **run** — the middleware to execute, in the format `pluginName.middlewareName` (split on the first `.`); a malformed value fails with `'<value>' is not a valid run reference; use the format 'plugin.middleware'.`
-- **condition** (optional) — an expression; the step is skipped when it evaluates to false
-- **haltIf** (optional) — an expression; the pipeline stops cleanly after this step when it evaluates to true
-- **continueOnError** (optional, default `false`) — whether to continue the pipeline if this step fails
-- **config** (optional) — configuration passed to the middleware; scalars stay as strings until the middleware binds them
+- `name` is a unique identifier for the step, and also the key its outputs are exposed under
+  (`output:<name>:<key>`).
+- `run` is the middleware to execute, written as `pluginName.middlewareName` and split on the first
+  `.`. A malformed value fails with
+  `'<value>' is not a valid run reference; use the format 'plugin.middleware'.`
+- `condition` is optional. The step is skipped when the expression evaluates to false.
+- `haltIf` is optional. The pipeline stops cleanly after this step when the expression evaluates to
+  true.
+- `continueOnError` is optional and defaults to `false`. It decides whether the pipeline carries on
+  when this step fails.
+- `config` is optional, and holds the configuration passed to the middleware. Scalars stay strings
+  until the middleware binds them.
 
 ### Step Execution
 
@@ -110,7 +116,7 @@ Use `condition` to make a step's execution depend on an expression:
     composeFile: "./docker-compose.yml"
 ```
 
-`deployToProduction` only runs when the current branch is `main`. Conditions have access to a small expression language over accumulated outputs — see [Configuration](./configuration.md) for the syntax.
+`deployToProduction` runs only when the current branch is `main`. Conditions get a small expression language over the accumulated outputs. See [Configuration](./configuration.md) for the syntax.
 
 ### Stopping Pipeline Execution
 
@@ -124,7 +130,7 @@ Use `haltIf` to stop the pipeline cleanly after a step completes, without treati
     baseVersion: $(output:tag:name)
 ```
 
-Here, the pipeline halts after `version` when the commits since the last tag don't call for a new release. A halted pipeline is reported as successful.
+The pipeline halts after `version` when the commits since the last tag do not call for a new release. A halted pipeline is reported as successful.
 
 ### Error Handling
 

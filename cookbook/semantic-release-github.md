@@ -1,9 +1,9 @@
 ---
-title: Semantic-release → GitHub
+title: Semantic-release to GitHub
 description: A complete Moonlit pipeline that computes a version from conventional commits and publishes a GitHub release
 ---
 
-# Semantic-release → GitHub
+# Semantic-release to GitHub
 
 A full pipeline that parses conventional commits, computes the next version and changelog, tags the release in Git, publishes a GitHub release (commenting and labeling the related pull requests and issues), and posts a Slack notification.
 
@@ -17,7 +17,7 @@ A full pipeline that parses conventional commits, computes the next version and 
 ## `release.yml`
 
 ```yaml
-name: "Semantic Release → GitHub"
+name: "Semantic Release to GitHub"
 
 plugins:
   - name: git
@@ -97,14 +97,14 @@ stages:
       run: slack.send-notification
       config:
         channel: "#releases"
-        message: "Released v$(output:version:nextVersion) — $(output:release:url)"
+        message: "Released v$(output:version:nextVersion): $(output:release:url)"
 ```
 
 ## Walkthrough
 
 ### Plugins
 
-Four plugins: **Git** (repository context, tagging, pushing), **Semantic Release** (conventional-commit parsing, version calculation, changelog), **GitHub** (related items, release creation), and **Slack** (notification). Git needs only `exec: ["git"]`. Semantic Release needs no `permissions:` block at all — it works entirely from the commit data it's given. GitHub needs `network: ["api.github.com", "*.github.com"]` for the REST API, `exec: ["git", "sh"]` because every middleware resolves the owner/repository via `git remote get-url origin`, and `env: ["GITHUB_*"]`. Slack needs only `network: ["slack.com"]`. See [Sandboxing](../guide/concepts/sandboxing.md) for the full permission model.
+Four plugins: **Git** (repository context, tagging, pushing), **Semantic Release** (conventional-commit parsing, version calculation, changelog), **GitHub** (related items, release creation), and **Slack** (notification). Git needs only `exec: ["git"]`. Semantic Release needs no `permissions:` block at all, since it works entirely from the commit data it is given. GitHub needs `network: ["api.github.com", "*.github.com"]` for the REST API, `exec: ["git", "sh"]` because every middleware resolves the owner/repository via `git remote get-url origin`, and `env: ["GITHUB_*"]`. Slack needs only `network: ["slack.com"]`. See [Sandboxing](../guide/concepts/sandboxing.md) for the full permission model.
 
 ### Analyze stage
 

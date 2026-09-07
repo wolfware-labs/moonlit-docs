@@ -81,7 +81,7 @@ stages:
 
 ### Plugins
 
-Three plugins: **Git** (repository context and version boundary), **Semantic Release** (conventional-commit parsing and version calculation), and **Docker** (login, buildx setup, build and push). The Docker plugin's grant is `exec: ["docker"]` — it shells out to the `docker` CLI — plus `env: ["MOONLIT_DOCKER_BUILDX_BUILDER"]`, since `build-and-push` falls back to that environment variable when no `builder` config or prior `setup-buildx` state is available. Git needs only `exec: ["git"]`; Semantic Release needs no `permissions:` block at all, since it works entirely from the commit data it's given. See [Sandboxing](../../guide/concepts/sandboxing.md) for the full permission model.
+Three plugins: **Git** (repository context and version boundary), **Semantic Release** (conventional-commit parsing and version calculation), and **Docker** (login, buildx setup, build and push). The Docker plugin's grant is `exec: ["docker"]`, because it shells out to the `docker` CLI, plus `env: ["MOONLIT_DOCKER_BUILDX_BUILDER"]`, because `build-and-push` falls back to that environment variable when there is no `builder` config and no prior `setup-buildx` state. Git needs only `exec: ["git"]`; Semantic Release needs no `permissions:` block at all, since it works entirely from the commit data it's given. See [Sandboxing](../../guide/concepts/sandboxing.md) for the full permission model.
 
 ### Analyze stage
 

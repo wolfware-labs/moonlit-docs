@@ -5,34 +5,50 @@ description: Learn how Moonlit's WebAssembly plugin system works and how plugins
 
 # Plugins System
 
-Moonlit's plugin system is one of its core features, allowing you to extend the tool's functionality through modular components. This page explains what plugins are, how they're loaded, and how the sandbox that runs them works.
+Almost everything Moonlit does at build time comes from a plugin. The engine itself only orders the
+work and passes values around. This page covers what a plugin is, how it gets loaded, and what the
+sandbox around it allows.
 
 ## What Are Plugins?
 
-A Moonlit plugin is a **WebAssembly component** — built for WASI Preview 2 and the component model — that implements the `moonlit:plugin` world. A plugin component exports:
+A Moonlit plugin is a WebAssembly component built for WASI Preview 2 and the component model, and it
+implements the `moonlit:plugin` world. Every plugin exports four functions:
 
-- **`describe`** — returns the plugin's name, version, description, and optional icon without needing any configuration; this is what `moonlit plugin inspect` and the registry read.
-- **`init`** — called once after instantiation with the plugin's global `config` block; returns the plugin's name, version, and description, or an error that aborts the pipeline with a plugin-load diagnostic.
-- **`list-middlewares`** — returns the middlewares the plugin provides, each with a name, description, and JSON Schemas for its config and outputs; used both for discovery (`moonlit plugin inspect`) and to validate every `run:` reference in your pipeline before execution starts.
-- **`execute`** — runs one named middleware against a step's fully-substituted configuration and returns its result: success/failure, warnings, and output values.
+- `describe` returns the plugin's name, version, description, and optional icon. It needs no
+  configuration, which is why `moonlit plugin inspect` and the registry can both call it on a plugin
+  they know nothing about.
+- `init` runs once after instantiation and receives the plugin's global `config` block. It returns
+  the plugin's name, version, and description. If it returns an error instead, the pipeline stops
+  with a plugin-load diagnostic.
+- `list-middlewares` returns the middlewares the plugin provides, each with a name, a description,
+  and JSON Schemas for its config and its outputs. This drives discovery in `moonlit plugin inspect`,
+  and it also lets the engine validate every `run:` reference in your pipeline before anything
+  executes.
+- `execute` runs one named middleware against a step's fully-substituted configuration. It reports
+  success or failure, any warnings, and the output values.
 
-Plugins don't call the host directly for things like the network or the filesystem — they import a small set of host-provided capabilities (structured logging, reading accumulated configuration, progress reporting, a permission-gated subprocess API) plus the standard `wasi:http`, `wasi:filesystem`, and `wasi:cli` interfaces, all mediated by the engine.
+A plugin never reaches the network or the filesystem on its own. It imports a small set of host
+capabilities instead: structured logging, reads of the accumulated configuration, progress
+reporting, and a permission-gated subprocess API, alongside the standard `wasi:http`,
+`wasi:filesystem`, and `wasi:cli` interfaces. The engine sits in front of all of them.
 
 ## Plugin URL Schemes
 
-A plugin is referenced by URL, and the scheme determines how it's resolved:
+You reference a plugin by URL, and the scheme decides how it gets resolved:
 
 | Scheme | Meaning | Resolution |
 |---|---|---|
-| `oci://<registry-host>/<namespace>/<name>:<tag>` | OCI artifact — the default way to distribute plugins | Pulled from an OCI registry and cached locally by digest |
-| `file:///abs/path/plugin.wasm` | A local component file | Loaded directly from disk — useful for plugin development |
-| `http(s)://…/plugin.wasm` | A remote component file | Downloaded and cached by URL hash |
+| `oci://<registry-host>/<namespace>/<name>:<tag>` | An OCI artifact, the usual way to distribute a plugin | Pulled from an OCI registry and cached locally by digest |
+| `file:///abs/path/plugin.wasm` | A local component file | Loaded straight from disk, which is what you want while developing a plugin |
+| `http(s)://.../plugin.wasm` | A remote component file | Downloaded and cached by URL hash |
 
-Package-manager-style references (as used by older, non-WASM plugin ecosystems) are not supported — Moonlit plugins ship as WASM components, so any unsupported scheme fails fast with a hint to switch to `oci://`.
+Package-manager-style references, the kind older non-WASM plugin ecosystems use, will not work.
+Moonlit plugins ship as WASM components, so an unrecognized scheme fails immediately with a hint to
+switch to `oci://`.
 
 ## Plugin Registration
 
-Plugins are registered in your pipeline configuration under the `plugins` section:
+Plugins go in the `plugins` section of your pipeline configuration:
 
 ```yaml
 plugins:
@@ -44,20 +60,27 @@ plugins:
       token: $(GITHUB_TOKEN)
 ```
 
-Each plugin entry has:
+Each entry takes:
 
-- **name** — the alias used to reference this plugin's middlewares in `run:` (see below)
-- **url** — where to resolve the plugin from, using one of the schemes above
-- **config** (optional) — plugin-level configuration, applied once at load time
-- **permissions** (optional) — the plugin's sandbox grant-list, described below
+- `name`, the alias you use to reach this plugin's middlewares from `run:`
+- `url`, where to resolve the plugin from, using one of the schemes above
+- `config`, optional, applied once at load time
+- `permissions`, optional, the plugin's sandbox grant-list, covered below
 
 ## Plugin Loading and Lifecycle
 
-When a pipeline starts, the engine loads every plugin listed in `plugins` **in parallel**: resolve the URL (pulling from cache or the network as needed), instantiate the component in the `wasmtime` host, and call its `init` export with the plugin's `config` block. The first plugin to fail aborts loading with a plugin diagnostic. Each plugin keeps **one instance for the whole pipeline run**, so middlewares on the same plugin can share in-memory state across steps — see [How Moonlit Works](./how-it-works.md) for the full execution model.
+When a pipeline starts, the engine loads every plugin in the `plugins` list in parallel. For each
+one it resolves the URL, pulling from the cache or the network as needed, instantiates the component
+in the `wasmtime` host, and calls `init` with that plugin's `config` block. If any plugin fails,
+loading aborts with a plugin diagnostic.
+
+A plugin is instantiated once and kept for the whole run, so middlewares on the same plugin can
+share in-memory state from one step to the next. [How Moonlit Works](./how-it-works.md) has the full
+execution model.
 
 ## Using Plugin Middlewares
 
-Once a plugin is loaded, you invoke its middlewares from pipeline steps:
+With a plugin loaded, steps call its middlewares:
 
 ```yaml
 stages:
@@ -68,11 +91,15 @@ stages:
       run: git.latest-tag
 ```
 
-The `run` property uses the format `pluginName.middlewareName` — split on the *first* `.` — to specify which middleware to execute. An unknown plugin or middleware name is caught before the pipeline runs.
+`run` takes the form `pluginName.middlewareName`, split on the *first* `.`. A plugin or middleware
+name that does not exist is caught before the pipeline runs, not halfway through it.
 
 ## Plugin Sandbox and Permissions
 
-Every plugin runs sandboxed and is **denied by default**. A plugin's optional `permissions` block is a **grant-list**, not a set of overrides: if you omit it, the plugin gets no network access, no subprocess execution, no environment variables, and no filesystem access. If you include it, only the keys you name are granted — any key you leave out stays denied.
+Every plugin runs sandboxed, and everything is denied until you say otherwise. The optional
+`permissions` block is a grant-list rather than a set of overrides. Leave it out and the plugin gets
+no network, no subprocess execution, no environment variables, and no filesystem access. Include it
+and you grant exactly the keys you name; anything you leave out stays denied.
 
 ```yaml
 plugins:
@@ -85,20 +112,26 @@ plugins:
       filesystem: read-write        # none | read-only | read-write of the working directory
 ```
 
-`filesystem` defaults to `none` when the block is present but the key is omitted, and a key the block doesn't recognize is a configuration error. If a plugin is denied a capability it tries to use — an ungranted network host or program, for example — the run output surfaces a warning naming the blocked target and the `permissions` key that would allow it.
+If the block is present but `filesystem` is missing, it defaults to `none`. A key the block does not
+recognize is a configuration error. When a plugin tries to use something it was not granted, an
+ungranted host or program for instance, the run output names the blocked target and the
+`permissions` key that would have allowed it.
 
 ## Plugin Configuration
 
-Plugin-related configuration exists at two levels:
+Configuration reaches a plugin at two levels:
 
-1. **Global configuration** — the `config` block on the plugin entry, applied once when the plugin loads.
-2. **Step configuration** — the `config` block on a step, applied to that one middleware call.
+1. The `config` block on the plugin entry, applied once when the plugin loads.
+2. The `config` block on a step, applied to that single middleware call.
 
-Both are `$(...)`-substituted against the configuration accumulated so far; see [Configuration](./configuration.md) for the full layering model.
+Both go through `$(...)` substitution against the configuration accumulated up to that point. See
+[Configuration](./configuration.md) for the full layering model.
 
 ## Official Plugins
 
-Moonlit ships a set of first-party plugins covering common release tasks — Git, GitHub, GitLab, semantic versioning, .NET, Node.js, Docker, and Slack, among others. See the [Plugins Overview](../../plugins/) for the full list and per-plugin documentation.
+Moonlit ships first-party plugins for the tasks most releases need: Git, GitHub, GitLab, semantic
+versioning, .NET, Node.js, Docker, and Slack, among others. The
+[Plugins Overview](../../plugins/) lists them all with per-plugin documentation.
 
 ## Next Steps
 

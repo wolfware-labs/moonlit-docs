@@ -128,13 +128,13 @@ Four plugins: **Git** (repository context, tagging, pushing), **Semantic Release
 
 ### Build stage
 
-`nodejs.install` runs `npm ci` (or `npm install`, depending on lockfile detection). `nodejs.test` runs the `test` script, failing the step — and stopping the pipeline before anything is published — on a non-zero exit. `nodejs.build` bumps the version with `npm version` and then runs the `build` script.
+`nodejs.install` runs `npm ci` (or `npm install`, depending on lockfile detection). `nodejs.test` runs the `test` script. A non-zero exit fails the step, which stops the pipeline before anything is published. `nodejs.build` bumps the version with `npm version` and then runs the `build` script.
 
 ### Publish stage
 
 `nodejs.pack` bumps the version again (idempotently, `--allow-same-version`) and packs the package into a `.tgz`, emitting `packagePath`. `nodejs.push` publishes that tarball with `npm publish`, using the plugin-level `NPM_TOKEN` written to a scoped, owner-only `.npmrc` that's removed again after the run.
 
-**npm semver has no build-metadata segment**, so this pipeline uses `nextVersion` everywhere — for `nodejs.build`, `nodejs.pack`, the Git tag, and the GitHub release tag — never `nextFullVersion`.
+**npm semver has no build-metadata segment**, so this pipeline uses `nextVersion` everywhere and never `nextFullVersion`: for `nodejs.build`, for `nodejs.pack`, for the Git tag, and for the GitHub release tag.
 
 ### Release stage
 

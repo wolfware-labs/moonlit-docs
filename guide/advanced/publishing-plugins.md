@@ -5,7 +5,7 @@ description: Push a built plugin component to an OCI registry and reference it f
 
 # Publishing a Plugin
 
-Moonlit distributes plugins as [OCI](https://opencontainers.org/) artifacts — the same registries and tooling used for container images. Once a plugin component is [built](./custom-plugins.md#building), publishing it makes it pullable from any pipeline via an `oci://` reference, with no manual file distribution.
+Moonlit distributes plugins as [OCI](https://opencontainers.org/) artifacts, using the same registries and tooling as container images. Once a plugin component is [built](./custom-plugins.md#building), publishing it makes it pullable from any pipeline through an `oci://` reference, with no files to hand around.
 
 ## Log In to a Registry
 
@@ -22,7 +22,7 @@ moonlit login --token "$MOONLIT_TOKEN"
 moonlit login ghcr.io --username my-user --token "$GHCR_TOKEN"
 ```
 
-Credentials are written to `~/.config/moonlit/credentials.toml` (created with `0600` permissions), keyed by registry host. Leaving `--username` unset stores a bearer token; supplying one stores basic auth. When resolving a plugin, Moonlit checks `~/.docker/config.json` first, then falls back to this file — so Docker-authenticated registries already work without a separate login.
+Credentials are written to `~/.config/moonlit/credentials.toml` (created with `0600` permissions), keyed by registry host. Leaving `--username` unset stores a bearer token; supplying one stores basic auth. When resolving a plugin, Moonlit checks `~/.docker/config.json` first and falls back to this file, so a registry you are already logged into with Docker works without a separate login.
 
 `moonlit logout [host]` removes a stored credential, and revokes the token on the registry first when it came from the browser flow. See the [CLI reference](../../reference/cli.md#moonlit-login-host) for the full set of options.
 
@@ -42,7 +42,7 @@ moonlit plugin publish oci://ghcr.io/acme/my-plugin:1.0.0 \
   --file target/wasm32-wasip2/release/my_plugin.wasm
 ```
 
-The `oci://` scheme on the reference is optional — a bare `ghcr.io/acme/my-plugin:1.0.0` works too. On success, `publish` prints the resolved reference, content digest, and artifact size.
+The `oci://` scheme on the reference is optional; a bare `ghcr.io/acme/my-plugin:1.0.0` works too. On success, `publish` prints the resolved reference, content digest, and artifact size.
 
 ## Reference Syntax
 
@@ -55,7 +55,7 @@ Examples:
 
 - `oci://ghcr.io/acme/my-plugin:1.0.0`
 - `oci://registry.moonlitbuild.dev/wolfware/git:1.0.0`
-- `oci://ghcr.io/acme/my-plugin@sha256:ab12…` — digest pinning, recommended for CI, since it skips a tag-resolution round trip entirely
+- `oci://ghcr.io/acme/my-plugin@sha256:ab12...` pins by digest. Worth preferring in CI, since it skips the tag-resolution round trip entirely
 
 ## Consuming a Published Plugin
 
