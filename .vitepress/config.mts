@@ -5,6 +5,12 @@ import * as path from 'path'
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   title: "Moonlit",
+
+  // diagrams/generated holds build-time render output that pages pull in with
+  // <!--@include: -->. Without this they would also be routed as pages of their
+  // own, and Vue would try to compile each bare SVG as a standalone template.
+  srcExclude: ['diagrams/**'],
+
   description: "A powerful build and release pipeline tool",
   lang: 'en-US',
   lastUpdated: true,

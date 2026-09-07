@@ -1,0 +1,24 @@
+# Architecture of a Moonlit run, from CLI invocation to the step loop.
+#
+# Rendered to SVG at build time by scripts/render-diagrams.mjs; the output under
+# diagrams/generated/ is disposable. Edit this file and re-run `npm run diagrams`.
+
+direction: down
+
+# Let the page background show through, so the diagram sits in the prose rather
+# than in a panel of its own. D2 would otherwise paint its theme background.
+style.fill: transparent
+
+cli: "moonlit CLI\narguments, progress rendering, exit codes"
+
+engine: "moonlit-engine\nparse, validate, flatten stages into one step list"
+
+host: "wasmtime host\nresolved in parallel, one component instance each, denied by default" {
+  git: "git\ntags, commits, push"
+  sr: "sr\nversion, changelog"
+  gh: "gh\nreleases, related items"
+}
+
+executor: "pipeline executor\nruns the flattened step list, one step at a time"
+
+cli -> engine -> host -> executor

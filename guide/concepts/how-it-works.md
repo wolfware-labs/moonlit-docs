@@ -9,72 +9,7 @@ Three pieces turn a YAML pipeline definition into a running release: the `moonli
 
 ## Architecture Overview
 
-<figure class="moonlit-arch">
-<svg viewBox="0 0 720 456" role="img" aria-labelledby="archTitle archDesc" xmlns="http://www.w3.org/2000/svg">
-  <title id="archTitle">Moonlit architecture</title>
-  <desc id="archDesc">The moonlit CLI calls into moonlit-engine, which parses and validates the
-  pipeline file and flattens its stages into one step list. The engine loads every plugin in
-  parallel into a wasmtime host, where each plugin gets a single sandboxed component instance and
-  no capability it was not granted. The pipeline executor then runs the flattened step list one
-  step at a time.</desc>
-
-  <style>
-    .moonlit-arch svg { width: 100%; height: auto; max-width: 720px; display: block; margin: 0 auto; }
-    .moonlit-arch .card { fill: var(--vp-c-bg-soft); stroke: var(--vp-c-divider); stroke-width: 1.5; }
-    .moonlit-arch .host { fill: var(--vp-c-bg-alt); stroke: var(--vp-c-brand-1); stroke-width: 1.5; stroke-dasharray: 6 4; }
-    .moonlit-arch .plugin { fill: var(--vp-c-bg); stroke: var(--vp-c-brand-1); stroke-width: 1.5; }
-    .moonlit-arch .flow { stroke: var(--vp-c-text-2); stroke-width: 2; }
-    .moonlit-arch text { font-family: var(--vp-font-family-base); }
-    .moonlit-arch .t { fill: var(--vp-c-text-1); font-size: 15px; font-weight: 600; }
-    .moonlit-arch .s { fill: var(--vp-c-text-2); font-size: 12px; }
-    .moonlit-arch .lbl { fill: var(--vp-c-brand-1); font-size: 13px; font-weight: 600; }
-    .moonlit-arch .mono { font-family: var(--vp-font-family-mono); font-size: 14px; font-weight: 600; fill: var(--vp-c-text-1); }
-  </style>
-
-  <defs>
-    <marker id="archArrow" viewBox="0 0 10 10" refX="9" refY="5"
-            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--vp-c-text-2)"/>
-    </marker>
-  </defs>
-
-  <rect class="card" x="170" y="16" width="380" height="62" rx="8"/>
-  <text class="t" x="360" y="43" text-anchor="middle">moonlit CLI</text>
-  <text class="s" x="360" y="63" text-anchor="middle">arguments, progress rendering, exit codes</text>
-
-  <line class="flow" x1="360" y1="78" x2="360" y2="102" marker-end="url(#archArrow)"/>
-
-  <rect class="card" x="170" y="104" width="380" height="62" rx="8"/>
-  <text class="t" x="360" y="131" text-anchor="middle">moonlit-engine</text>
-  <text class="s" x="360" y="151" text-anchor="middle">parse, validate, flatten stages into one step list</text>
-
-  <line class="flow" x1="360" y1="166" x2="360" y2="190" marker-end="url(#archArrow)"/>
-
-  <rect class="host" x="40" y="192" width="640" height="160" rx="10"/>
-  <text class="lbl" x="64" y="216">wasmtime host</text>
-  <text class="s" x="64" y="234">every plugin resolved and instantiated in parallel, one component instance each</text>
-
-  <rect class="plugin" x="64" y="248" width="192" height="54" rx="6"/>
-  <text class="mono" x="160" y="270" text-anchor="middle">git</text>
-  <text class="s" x="160" y="289" text-anchor="middle">tags, commits, push</text>
-
-  <rect class="plugin" x="264" y="248" width="192" height="54" rx="6"/>
-  <text class="mono" x="360" y="270" text-anchor="middle">sr</text>
-  <text class="s" x="360" y="289" text-anchor="middle">version, changelog</text>
-
-  <rect class="plugin" x="464" y="248" width="192" height="54" rx="6"/>
-  <text class="mono" x="560" y="270" text-anchor="middle">gh</text>
-  <text class="s" x="560" y="289" text-anchor="middle">releases, related items</text>
-
-  <text class="s" x="360" y="330" text-anchor="middle">denied by default; a permissions grant opens network, exec, env, and filesystem</text>
-
-  <line class="flow" x1="360" y1="352" x2="360" y2="376" marker-end="url(#archArrow)"/>
-
-  <rect class="card" x="170" y="378" width="380" height="62" rx="8"/>
-  <text class="t" x="360" y="405" text-anchor="middle">pipeline executor</text>
-  <text class="s" x="360" y="425" text-anchor="middle">runs the flattened step list, one step at a time</text>
-</svg>
-</figure>
+<!--@include: ../../diagrams/generated/architecture.md-->
 
 ## Core Components
 
