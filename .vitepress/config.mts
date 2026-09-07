@@ -1,9 +1,9 @@
-import { withMermaid } from "vitepress-plugin-mermaid"
+import { defineConfig } from 'vitepress'
 import * as fs from 'fs'
 import * as path from 'path'
 
 // https://vitepress.dev/reference/site-config
-export default withMermaid({
+export default defineConfig({
   title: "Moonlit",
   description: "A powerful build and release pipeline tool",
   lang: 'en-US',

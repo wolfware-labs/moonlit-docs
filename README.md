@@ -49,8 +49,8 @@ Conventions worth knowing:
 
 - `cleanUrls` is on, so internal links carry no `.html` extension: `/guide/quick-start`, not
   `/guide/quick-start.html`.
-- Diagrams are [Mermaid](https://mermaid.js.org/) fenced blocks, rendered at build time by
-  `vitepress-plugin-mermaid`. No client-side library to load.
+- Diagrams are hand-authored inline SVG, colored with the `--vp-c-*` CSS variables so they follow
+  the reader's light or dark theme. There is no diagram library, and nothing renders at run time.
 - `<InstallCommand />` renders the install snippet for the visitor's operating system. Use it rather
   than hardcoding one platform's command.
 - Each nav entry needs an `activeMatch` pattern. Without it the section stops being highlighted as
