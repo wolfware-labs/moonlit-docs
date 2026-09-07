@@ -6,6 +6,7 @@ import './style.css'
 import SEOMetadata from './components/SEOMetadata.vue'
 import VersionSelector from './components/VersionSelector.vue'
 import InstallCommand from './components/InstallCommand.vue'
+import FlowDiagram from './components/FlowDiagram.vue'
 
 export default {
   extends: DefaultTheme,
@@ -24,6 +25,7 @@ export default {
     app.component('SEOMetadata', SEOMetadata)
     app.component('VersionSelector', VersionSelector)
     app.component('InstallCommand', InstallCommand)
+    app.component('FlowDiagram', FlowDiagram)
   },
   setup() {
     // Add JSON-LD structured data for SEO

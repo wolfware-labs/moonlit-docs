@@ -9,7 +9,22 @@ Three pieces turn a YAML pipeline definition into a running release: the `moonli
 
 ## Architecture Overview
 
-<!--@include: ../../diagrams/generated/architecture.md-->
+<FlowDiagram
+  caption="How a run gets from the command line to the step loop"
+  :flow="[
+    { title: 'moonlit CLI', detail: 'arguments, progress rendering, exit codes' },
+    { title: 'moonlit-engine', detail: 'parse, validate, flatten stages into one step list' },
+    {
+      group: 'wasmtime host',
+      note: 'Every plugin is resolved and instantiated in parallel, one component instance each, denied every capability it was not granted.',
+      items: [
+        { title: 'git', mono: true, detail: 'tags, commits, push' },
+        { title: 'sr', mono: true, detail: 'version, changelog' },
+        { title: 'gh', mono: true, detail: 'releases, related items' },
+      ],
+    },
+    { title: 'pipeline executor', detail: 'runs the flattened step list, one step at a time' },
+  ]" />
 
 ## Core Components
 

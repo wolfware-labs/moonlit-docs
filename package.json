@@ -1,12 +1,10 @@
 {
   "scripts": {
-    "diagrams": "node scripts/render-diagrams.mjs",
-    "docs:dev": "npm run diagrams && vitepress dev",
-    "docs:build": "npm run diagrams && vitepress build",
+    "docs:dev": "vitepress dev",
+    "docs:build": "vitepress build",
     "docs:preview": "vitepress preview"
   },
   "devDependencies": {
-    "@d2lang/d2": "^0.1.33",
     "@types/node": "^24.0.13",
     "typescript": "^5.8.3",
     "vitepress": "^1.6.3",

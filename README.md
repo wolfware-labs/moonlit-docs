@@ -19,10 +19,8 @@ This repository holds the prose. The CLI, the engine, and the plugin development
 | `plugins/` | One page per first-party plugin, plus longer examples under `plugins/examples/` |
 | `cookbook/` | Complete `release.yml` recipes, end to end |
 | `public/` | Static assets served from the site root (logos, `robots.txt`) |
-| `diagrams/` | [D2](https://d2lang.com/) diagram sources, rendered to SVG at build time |
-| `scripts/render-diagrams.mjs` | The renderer that turns `diagrams/*.d2` into includable SVG |
 | `.vitepress/config.mts` | Site config, navigation, sidebar, search, and SEO |
-| `.vitepress/theme/` | Custom theme: styles and the `SEOMetadata`, `VersionSelector`, and `InstallCommand` components |
+| `.vitepress/theme/` | Custom theme: styles and the `SEOMetadata`, `VersionSelector`, `InstallCommand`, and `FlowDiagram` components |
 | `versions.json` | The version list the `VersionSelector` reads |
 | `Dockerfile`, `nginx.conf` | The container image the site ships in |
 | `release.yml` | The Moonlit pipeline that builds and releases that image |
@@ -51,11 +49,11 @@ Conventions worth knowing:
 
 - `cleanUrls` is on, so internal links carry no `.html` extension: `/guide/quick-start`, not
   `/guide/quick-start.html`.
-- Diagrams are [D2](https://d2lang.com/) sources under `diagrams/`, rendered to SVG by
-  `npm run diagrams` and inlined into a page with `<!--@include: ../../diagrams/generated/<name>.md-->`.
-  Both `docs:dev` and `docs:build` run the renderer first, so no diagram library reaches the browser
-  and `diagrams/generated/` is build output rather than source. To add one, drop a `.d2` file in
-  `diagrams/` and include the snippet it generates.
+- Diagrams are the `<FlowDiagram>` component, which takes the diagram as a `flow` prop and draws it
+  in HTML and CSS from the theme's own `--vp-c-*` tokens. There is no diagram library, no render
+  step, and nothing to regenerate. Note that an SVG carrying its own `<style>` cannot be inlined
+  into a page instead: Vue strips those tags from the compiled render function, so the diagram loses
+  its styling the moment a reader arrives by client-side navigation rather than a fresh load.
 - `<InstallCommand />` renders the install snippet for the visitor's operating system. Use it rather
   than hardcoding one platform's command.
 - Each nav entry needs an `activeMatch` pattern. Without it the section stops being highlighted as
