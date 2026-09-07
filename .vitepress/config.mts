@@ -87,7 +87,8 @@ export default withMermaid({
       { text: 'Reference', link: '/reference/', activeMatch: '^/reference/' },
       { text: 'Plugins', link: '/plugins/', activeMatch: '^/plugins/' },
       { text: 'Cookbook', link: '/cookbook/', activeMatch: '^/cookbook/' },
-      { text: 'Registry', link: 'https://registry.moonlitbuild.dev' }
+      // Hidden until the registry has published plugins to show.
+      // { text: 'Registry', link: 'https://registry.moonlitbuild.dev' }
     ],
 
     // Algolia DocSearch Configuration
