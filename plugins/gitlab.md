@@ -12,7 +12,7 @@ Releases, related merge requests/issues, and CI variable export via the GitLab R
 ```yaml
 plugins:
   - name: gitlab
-    url: "oci://registry.moonlitbuild.dev/wolfware/gitlab:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/gitlab:1.0.0"
     config:
       token: $(GITLAB_TOKEN)
     permissions:
@@ -85,7 +85,7 @@ No outputs. Both maps empty (after merging) succeeds without writing. A key not 
 ```yaml
 plugins:
   - name: gitlab
-    url: "oci://registry.moonlitbuild.dev/wolfware/gitlab:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/gitlab:1.0.0"
     config:
       token: $(GITLAB_TOKEN)
     permissions:

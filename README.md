@@ -1,11 +1,11 @@
 # Moonlit Documentation
 
-The source for [moonlitbuild.dev](https://moonlitbuild.dev/), the documentation site for
+The source for [moonlit.rs](https://moonlit.rs/), the documentation site for
 [Moonlit](https://github.com/wolfware-labs/moonlit). Built with [VitePress](https://vitepress.dev/).
 
 This repository holds the prose. The CLI, the engine, and the plugin development kit live in
 [`wolfware-labs/moonlit`](https://github.com/wolfware-labs/moonlit); published plugins live in the
-[registry](https://registry.moonlitbuild.dev).
+[registry](https://registry.moonlit.rs).
 
 ## Layout
 

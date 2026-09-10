@@ -12,7 +12,7 @@ Releases, related pull requests and issues, and CI variable export via the GitHu
 ```yaml
 plugins:
   - name: gh
-    url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/github:1.0.0"
     config:
       token: $(GITHUB_TOKEN)
     permissions:
@@ -80,7 +80,7 @@ No outputs. A non-empty map whose corresponding environment variable isn't set f
 ```yaml
 plugins:
   - name: gh
-    url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/github:1.0.0"
     config:
       token: $(GITHUB_TOKEN)
     permissions:

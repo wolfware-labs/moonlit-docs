@@ -53,9 +53,9 @@ Plugins go in the `plugins` section of your pipeline configuration:
 ```yaml
 plugins:
   - name: git
-    url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/git:1.0.0"
   - name: gh
-    url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/github:1.0.0"
     config:
       token: $(GITHUB_TOKEN)
 ```
@@ -104,7 +104,7 @@ and you grant exactly the keys you name; anything you leave out stays denied.
 ```yaml
 plugins:
   - name: gh
-    url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/github:1.0.0"
     permissions:
       network: ["api.github.com"]   # allowed hosts for outbound HTTP
       exec: []                      # allowed programs for subprocess execution

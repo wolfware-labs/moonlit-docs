@@ -12,7 +12,7 @@ Conventional-commit parsing, semantic version calculation, and changelog generat
 ```yaml
 plugins:
   - name: sr
-    url: "oci://registry.moonlitbuild.dev/wolfware/semantic-release:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/semantic-release:1.0.0"
 ```
 
 The Semantic Release plugin does all of its work offline against the commit data it's given, so it needs no `permissions:` block at all; see [Sandboxing](../guide/concepts/sandboxing.md) for the deny-by-default model this relies on. The one exception is the optional [AI refinement](#ai-assisted-changelog-refinement), which needs a `network` grant for the chosen provider's host.
@@ -112,7 +112,7 @@ Commits are processed in sequential batches of 15. Authentication failures, malf
 ```yaml
 plugins:
   - name: sr
-    url: "oci://registry.moonlitbuild.dev/wolfware/semantic-release:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/semantic-release:1.0.0"
     config:
       ai:
         provider: anthropic
@@ -134,7 +134,7 @@ stages:
 ```yaml
 plugins:
   - name: sr
-    url: "oci://registry.moonlitbuild.dev/wolfware/semantic-release:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/semantic-release:1.0.0"
 
 stages:
   analyze:

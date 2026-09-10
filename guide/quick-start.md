@@ -23,7 +23,7 @@ name: "My First Pipeline"
 
 plugins:
   - name: git
-    url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/git:1.0.0"
     permissions:
       exec: ["git"]
 

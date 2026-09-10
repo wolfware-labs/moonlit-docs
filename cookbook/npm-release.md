@@ -22,15 +22,15 @@ name: "npm Package Release"
 
 plugins:
   - name: git
-    url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/git:1.0.0"
     permissions:
       exec: ["git"]
 
   - name: sr
-    url: "oci://registry.moonlitbuild.dev/wolfware/semantic-release:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/semantic-release:1.0.0"
 
   - name: nodejs
-    url: "oci://registry.moonlitbuild.dev/wolfware/nodejs:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/nodejs:1.0.0"
     config:
       token: $(NPM_TOKEN)
     permissions:
@@ -38,7 +38,7 @@ plugins:
       filesystem: read-write
 
   - name: gh
-    url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/github:1.0.0"
     config:
       token: $(GITHUB_TOKEN)
     permissions:

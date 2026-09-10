@@ -12,7 +12,7 @@ Repository context, tag discovery, commit history, tagging, and pushing, driven 
 ```yaml
 plugins:
   - name: git
-    url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/git:1.0.0"
     permissions:
       exec: ["git"]
 ```
@@ -95,7 +95,7 @@ No outputs. A branch with no configured upstream succeeds with a warning. Authen
 ```yaml
 plugins:
   - name: git
-    url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/git:1.0.0"
     permissions:
       exec: ["git"]
 

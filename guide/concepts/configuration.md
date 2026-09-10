@@ -172,20 +172,20 @@ arguments:
 
 plugins:
   - name: git
-    url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/git:1.0.0"
     permissions:
       exec: ["git"]
   - name: gh
-    url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/github:1.0.0"
     config:
       token: $(GITHUB_TOKEN)
     permissions:
       network: ["api.github.com"]
       exec: ["git"]
   - name: sr
-    url: "oci://registry.moonlitbuild.dev/wolfware/semantic-release:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/semantic-release:1.0.0"
   - name: dotnet
-    url: "oci://registry.moonlitbuild.dev/wolfware/dotnet:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/dotnet:1.0.0"
     permissions:
       exec: ["dotnet"]
       filesystem: read-write

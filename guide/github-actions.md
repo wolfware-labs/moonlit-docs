@@ -89,7 +89,7 @@ jobs:
 
 ## Private plugins
 
-The action does not log in to a registry. Add a step; with no host argument, `moonlit login` targets `registry.moonlitbuild.dev`:
+The action does not log in to a registry. Add a step; with no host argument, `moonlit login` targets `registry.moonlit.rs`:
 
 ```yaml
 - uses: wolfware-labs/setup-moonlit@v1

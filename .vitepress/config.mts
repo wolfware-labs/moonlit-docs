@@ -23,17 +23,17 @@ export default defineConfig({
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:title', content: 'Moonlit - Bring light to your release process' }],
     ['meta', { property: 'og:description', content: 'A powerful, extensible build and release automation tool for modern development workflows' }],
-    ['meta', { property: 'og:image', content: 'https://moonlitbuild.dev/logo_portrait.png' }],
+    ['meta', { property: 'og:image', content: 'https://moonlit.rs/logo_portrait.png' }],
 
     // Twitter
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
     ['meta', { name: 'twitter:title', content: 'Moonlit - Bring light to your release process' }],
     ['meta', { name: 'twitter:description', content: 'A powerful, extensible build and release automation tool for modern development workflows' }],
-    ['meta', { name: 'twitter:image', content: 'https://moonlitbuild.dev/logo_portrait.png' }],
+    ['meta', { name: 'twitter:image', content: 'https://moonlit.rs/logo_portrait.png' }],
   ],
   // Sitemap configuration
   sitemap: {
-    hostname: 'https://moonlitbuild.dev/'
+    hostname: 'https://moonlit.rs/'
   },
 
   // Performance optimizations
@@ -52,7 +52,7 @@ export default defineConfig({
     }
 
     // Construct the full canonical URL
-    const canonicalUrl = new URL(pagePath, 'https://moonlitbuild.dev/').href;
+    const canonicalUrl = new URL(pagePath, 'https://moonlit.rs/').href;
 
     return [
       ['link', { rel: 'canonical', href: canonicalUrl }],
@@ -89,7 +89,7 @@ export default defineConfig({
       { text: 'Plugins', link: '/plugins/', activeMatch: '^/plugins/' },
       { text: 'Cookbook', link: '/cookbook/', activeMatch: '^/cookbook/' },
       // Hidden until the registry has published plugins to show.
-      // { text: 'Registry', link: 'https://registry.moonlitbuild.dev' }
+      // { text: 'Registry', link: 'https://registry.moonlit.rs' }
     ],
 
     // Algolia DocSearch Configuration

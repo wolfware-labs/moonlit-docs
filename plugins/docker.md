@@ -12,7 +12,7 @@ Authenticate, set up buildx, build/push images, and deploy via the `docker` CLI.
 ```yaml
 plugins:
   - name: docker
-    url: "oci://registry.moonlitbuild.dev/wolfware/docker:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/docker:1.0.0"
     permissions:
       exec: ["docker"]
       env: ["MOONLIT_DOCKER_BUILDX_BUILDER"]
@@ -90,7 +90,7 @@ No outputs. `docker compose -f <composeFile> up -d [--pull always]`, with `DOCKE
 ```yaml
 plugins:
   - name: docker
-    url: "oci://registry.moonlitbuild.dev/wolfware/docker:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/docker:1.0.0"
     permissions:
       exec: ["docker"]
       env: ["MOONLIT_DOCKER_BUILDX_BUILDER"]

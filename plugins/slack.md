@@ -12,7 +12,7 @@ Post messages to a Slack channel via the Slack Web API.
 ```yaml
 plugins:
   - name: slack
-    url: "oci://registry.moonlitbuild.dev/wolfware/slack:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/slack:1.0.0"
     config:
       token: $(SLACK_TOKEN)
     permissions:
@@ -39,7 +39,7 @@ No outputs. A Slack API response with `ok: false` fails the step with Slack's er
 ```yaml
 plugins:
   - name: slack
-    url: "oci://registry.moonlitbuild.dev/wolfware/slack:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/slack:1.0.0"
     config:
       token: $(SLACK_TOKEN)
     permissions:

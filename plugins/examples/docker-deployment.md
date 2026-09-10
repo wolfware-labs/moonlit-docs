@@ -21,15 +21,15 @@ name: "Docker Deployment"
 
 plugins:
   - name: git
-    url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/git:1.0.0"
     permissions:
       exec: ["git"]
 
   - name: sr
-    url: "oci://registry.moonlitbuild.dev/wolfware/semantic-release:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/semantic-release:1.0.0"
 
   - name: docker
-    url: "oci://registry.moonlitbuild.dev/wolfware/docker:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/docker:1.0.0"
     permissions:
       exec: ["docker"]
       env: ["MOONLIT_DOCKER_BUILDX_BUILDER"]

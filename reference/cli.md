@@ -162,7 +162,7 @@ moonlit login [<host>] [--username <name>] [--token <token>]
 
 | Flag | Description |
 |---|---|
-| `<host>` | Registry host, for example `registry.moonlitbuild.dev`, `ghcr.io`, or `localhost:5185`. Defaults to `registry.moonlitbuild.dev` when omitted. |
+| `<host>` | Registry host, for example `registry.moonlit.rs`, `ghcr.io`, or `localhost:5185`. Defaults to `registry.moonlit.rs` when omitted. |
 | `--username <name>` | Registry username for Basic auth. Passing this (or `--token`) selects the manual path described below. |
 | `--token <token>` | Registry token or password. Passing this (or `--username`) selects the manual path. **Required** when stdin isn't a TTY. |
 
@@ -182,7 +182,7 @@ moonlit logout [<host>] [--local]
 
 | Flag | Description |
 |---|---|
-| `<host>` | Registry host. Defaults to `registry.moonlitbuild.dev` when omitted. |
+| `<host>` | Registry host. Defaults to `registry.moonlit.rs` when omitted. |
 | `--local` | Only remove the local credential; do not contact the registry. |
 
 For a Bearer credential obtained through `moonlit login`'s device flow, `logout` first asks the registry to revoke the token, then removes it locally. If the registry can't be reached, the local credential is still removed, with a warning that the token should be revoked in the registry's portal. Basic credentials are removed locally only. Logging out of a host with no stored credential succeeds with `Not logged in to <host>.`

@@ -13,7 +13,7 @@ Moonlit distributes plugins as [OCI](https://opencontainers.org/) artifacts, usi
 moonlit login
 ```
 
-With no arguments this signs in to Moonlit's own registry, `registry.moonlitbuild.dev`, through your browser: the CLI prints a one-time code, opens the registry's approval page, and stores the token the registry issues once you approve. Pass a host to sign in elsewhere.
+With no arguments this signs in to Moonlit's own registry, `registry.moonlit.rs`, through your browser: the CLI prints a one-time code, opens the registry's approval page, and stores the token the registry issues once you approve. Pass a host to sign in elsewhere.
 
 For CI, or for a registry that doesn't offer the browser flow (GitHub Container Registry, for example), pass the credential directly and no browser is involved:
 
@@ -54,7 +54,7 @@ oci://<host>[:port]/<namespace>/<name>@sha256:<digest>
 Examples:
 
 - `oci://ghcr.io/acme/my-plugin:1.0.0`
-- `oci://registry.moonlitbuild.dev/wolfware/git:1.0.0`
+- `oci://registry.moonlit.rs/wolfware/git:1.0.0`
 - `oci://ghcr.io/acme/my-plugin@sha256:ab12...` pins by digest. Worth preferring in CI, since it skips the tag-resolution round trip entirely
 
 ## Consuming a Published Plugin

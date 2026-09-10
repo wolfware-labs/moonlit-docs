@@ -20,15 +20,15 @@ name: "GitLab Release"
 
 plugins:
   - name: git
-    url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/git:1.0.0"
     permissions:
       exec: ["git"]
 
   - name: sr
-    url: "oci://registry.moonlitbuild.dev/wolfware/semantic-release:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/semantic-release:1.0.0"
 
   - name: gitlab
-    url: "oci://registry.moonlitbuild.dev/wolfware/gitlab:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/gitlab:1.0.0"
     config:
       token: $(GITLAB_TOKEN)
     permissions:

@@ -58,7 +58,7 @@ Each entry in `plugins` has:
 ```yaml
 plugins:
   - name: gh
-    url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/github:1.0.0"
     config:
       token: $(GITHUB_TOKEN)
     permissions:
@@ -82,7 +82,7 @@ The three list keys also accept a single string in place of a list. A `permissio
 
 | Scheme | Meaning | Example |
 |---|---|---|
-| `oci://` | An OCI artifact, the default way to distribute and consume plugins. | `oci://registry.moonlitbuild.dev/wolfware/git:1.0.0` |
+| `oci://` | An OCI artifact, the default way to distribute and consume plugins. | `oci://registry.moonlit.rs/wolfware/git:1.0.0` |
 | `file://` | A local component file, for plugin development. Must point to an existing `.wasm` file. | `file:///home/me/plugin/target/wasm32-wasip2/release/my_plugin.wasm` |
 | `http://` / `https://` | A remote component file, downloaded and cached by URL hash. | `https://example.com/plugins/my-plugin.wasm` |
 
@@ -172,12 +172,12 @@ arguments:
 
 plugins:
   - name: git
-    url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/git:1.0.0"
     permissions:
       exec: ["git"]
 
   - name: gh
-    url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/github:1.0.0"
     config:
       token: $(GITHUB_TOKEN)
     permissions:
@@ -186,10 +186,10 @@ plugins:
       env: ["GITHUB_*"]
 
   - name: sr
-    url: "oci://registry.moonlitbuild.dev/wolfware/semantic-release:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/semantic-release:1.0.0"
 
   - name: dotnet
-    url: "oci://registry.moonlitbuild.dev/wolfware/dotnet:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/dotnet:1.0.0"
     permissions:
       exec: ["dotnet"]
       filesystem: read-write

@@ -49,7 +49,7 @@ Publishing requires stored credentials for the target registry:
 moonlit login ghcr.io --username my-user --token "$GHCR_TOKEN"
 ```
 
-This writes the credential to `~/.config/moonlit/credentials.toml` with `0600` permissions. Run `moonlit login` with no arguments to sign in to `registry.moonlitbuild.dev` through your browser instead.
+This writes the credential to `~/.config/moonlit/credentials.toml` with `0600` permissions. Run `moonlit login` with no arguments to sign in to `registry.moonlit.rs` through your browser instead.
 
 ## 5. Publish
 

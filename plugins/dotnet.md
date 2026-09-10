@@ -12,7 +12,7 @@ Build, pack, test, and publish .NET projects via the `dotnet` CLI.
 ```yaml
 plugins:
   - name: dotnet
-    url: "oci://registry.moonlitbuild.dev/wolfware/dotnet:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/dotnet:1.0.0"
     config:
       nugetApiKey: $(NUGET_API_KEY)
     permissions:
@@ -98,7 +98,7 @@ Results are written to `.moonlit/dotnet-test/<slug>/moonlit.trx` (same slug sche
 ```yaml
 plugins:
   - name: dotnet
-    url: "oci://registry.moonlitbuild.dev/wolfware/dotnet:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/dotnet:1.0.0"
     config:
       nugetApiKey: $(NUGET_API_KEY)
     permissions:

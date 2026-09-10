@@ -42,7 +42,7 @@ wrote down, key by key.
 ```yaml
 plugins:
   - name: gh
-    url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/github:1.0.0"
     permissions:
       network: ["api.github.com"]        # allowed hosts for wasi:http
       exec: []                           # allowed programs for moonlit:plugin/process
@@ -92,12 +92,12 @@ nothing more:
 ```yaml
 plugins:
   - name: git
-    url: "oci://registry.moonlitbuild.dev/wolfware/git:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/git:1.0.0"
     permissions:
       exec: ["git"]
 
   - name: gh
-    url: "oci://registry.moonlitbuild.dev/wolfware/github:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/github:1.0.0"
     config:
       token: $(GITHUB_TOKEN)
     permissions:
@@ -106,7 +106,7 @@ plugins:
       env: ["GITHUB_*"]
 
   - name: dotnet
-    url: "oci://registry.moonlitbuild.dev/wolfware/dotnet:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/dotnet:1.0.0"
     permissions:
       exec: ["dotnet"]
       filesystem: read-write

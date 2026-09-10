@@ -12,7 +12,7 @@ Run nested Moonlit release files, such as monorepo modules or submodules, by inv
 ```yaml
 plugins:
   - name: moonlit
-    url: "oci://registry.moonlitbuild.dev/wolfware/moonlit:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/moonlit:1.0.0"
     permissions:
       exec: ["moonlit"]
 ```
@@ -42,7 +42,7 @@ Each child runs as `moonlit run -w <dir> [-f <file>] --output plain [-s <stage>]
 ```yaml
 plugins:
   - name: moonlit
-    url: "oci://registry.moonlitbuild.dev/wolfware/moonlit:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/moonlit:1.0.0"
     permissions:
       exec: ["moonlit"]
 

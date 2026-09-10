@@ -12,7 +12,7 @@ Install, build, test, pack, and publish Node.js packages via the `npm` CLI.
 ```yaml
 plugins:
   - name: nodejs
-    url: "oci://registry.moonlitbuild.dev/wolfware/nodejs:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/nodejs:1.0.0"
     config:
       token: $(NPM_TOKEN)
     permissions:
@@ -106,7 +106,7 @@ No outputs. `npm run <script>`; any non-zero exit fails with `"Tests failed."`
 ```yaml
 plugins:
   - name: nodejs
-    url: "oci://registry.moonlitbuild.dev/wolfware/nodejs:1.0.0"
+    url: "oci://registry.moonlit.rs/wolfware/nodejs:1.0.0"
     config:
       token: $(NPM_TOKEN)
     permissions:
