@@ -45,6 +45,30 @@ On Windows:
 choco install moonlit
 ```
 
+## Windows Installer (MSI)
+
+Every release publishes a Windows Installer package for x64. Download
+[`moonlit-x86_64-pc-windows-msvc.msi`](https://github.com/wolfware-labs/moonlit/releases/latest/download/moonlit-x86_64-pc-windows-msvc.msi)
+and run it, or install it unattended:
+
+```powershell
+msiexec /i moonlit-x86_64-pc-windows-msvc.msi /qn
+```
+
+The installer places `moonlit.exe` in `Program Files\moonlit\bin`, adds that directory to the system `PATH`, and registers Moonlit in Add/Remove Programs. Running a newer MSI upgrades the existing install in place rather than installing alongside it.
+
+Because it installs per-machine, the MSI needs administrator rights — which makes it the right channel for a shared install, a managed desktop, or deployment through Group Policy or Intune. For a single-user install on your own machine, the PowerShell installer above is simpler and needs no elevation.
+
+::: warning The MSI is not code-signed
+Windows SmartScreen shows a publisher warning the first time you run it. Verify the download against its published checksum before installing:
+
+```powershell
+(Get-FileHash moonlit-x86_64-pc-windows-msvc.msi -Algorithm SHA256).Hash
+```
+
+Compare the result with [`moonlit-x86_64-pc-windows-msvc.msi.sha256`](https://github.com/wolfware-labs/moonlit/releases/latest/download/moonlit-x86_64-pc-windows-msvc.msi.sha256) from the same release.
+:::
+
 ## npm
 
 The CLI is also published to npm as `@moonlitbuild/cli`, which is convenient for Node.js projects that already manage tooling through `package.json`:
@@ -63,7 +87,7 @@ Every release publishes archives for:
 |---|---|
 | Linux | x64, arm64 |
 | macOS | x64 (Intel), arm64 (Apple Silicon) |
-| Windows | x64 (archive and MSI installer) |
+| Windows | x64 (archive, and the [MSI installer](#windows-installer-msi)) |
 
 Download the archive for your platform from the [GitHub releases page](https://github.com/wolfware-labs/moonlit/releases), extract it, and place the `moonlit` binary somewhere on your `PATH`.
 
