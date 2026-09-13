@@ -56,7 +56,7 @@ cargo fmt --all --check
 cargo clippy --all-targets -- -D warnings
 ```
 
-Run all four before opening a pull request; CI enforces the same checks. Some engine tests instantiate prebuilt plugin components from `engine/tests/fixtures`; the fixture crates under `fixtures/` are their source.
+Run all four before opening a pull request; CI enforces the same checks. Some engine tests instantiate prebuilt plugin components from `crates/engine/tests/fixtures`; the fixture crates under `fixtures/` are their source.
 
 ### Plugins
 

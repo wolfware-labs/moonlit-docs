@@ -20,12 +20,12 @@ for example from a non-Rust language with its own component tooling.
 
 ## Where it lives
 
-The canonical file is `engine/wit/moonlit-plugin.wit` in the Moonlit source tree; the
-`moonlit-pdk` crate vendors an identical copy at `pdk/wit/moonlit-plugin.wit`, and a test asserts
+The canonical file is `crates/engine/wit/moonlit-plugin.wit` in the Moonlit source tree; the
+`moonlit-pdk` crate vendors an identical copy at `crates/pdk/wit/moonlit-plugin.wit`, and a test asserts
 the two never drift. Every plugin component targets the `plugin` world of package
 `moonlit:plugin@0.3.0`.
 
-The engine also carries a `plugin-host` world (`engine/wit/host.wit`) that is identical to
+The engine also carries a `plugin-host` world (`crates/engine/wit/host.wit`) that is identical to
 `plugin` minus the `wasi:http` import; it exists only so the host-side bindings can be generated,
 and outgoing HTTP is linked at run time instead. Plugin authors never target it.
 
@@ -33,12 +33,15 @@ and outgoing HTTP is linked at run time instead. Plugin authors never target it.
 
 | Package version | What changed |
 |---|---|
-| `0.1.0` | The original contract: `init`, `list-middlewares`, `execute`, and the `host`/`process` interfaces. |
+| `0.1.0` | The original contract: `init`, `list-middlewares`, `execute`, and the `host`/`process` interfaces. `describe` and the `wasi:clocks/monotonic-clock` import were both added later, still under `0.1.0`, without a package bump. |
 | `0.2.0` | `plugin-metadata` gained an optional `icon`; `middleware-info` gained a config schema. |
 | `0.3.0` | Middleware config was split into a typed input and a typed output: `middleware-info` now carries `input-schema` and `output-schema`. |
 
 Fields added after `0.1.0` are optional, so consumers such as `moonlit plugin inspect` and the
-registry fall back gracefully for components built against an older ABI.
+registry fall back gracefully for components built against an older ABI. The exports are a
+different matter: because `describe` arrived partway through `0.1.0` without its own version, a
+component declaring `0.1.0` may or may not have it, and the package version alone will not tell you
+which. Anything built against `0.2.0` or later exports all four.
 
 ## The JSON boundary
 

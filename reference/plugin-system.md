@@ -25,7 +25,7 @@ across its own middlewares within a run, so `git.latest-tag` can stash a resolve
 
 ## Resolving a plugin source
 
-Each `plugins[].url` is parsed into a `PluginSource` by scheme (`engine/src/resolve/mod.rs`):
+Each `plugins[].url` is parsed into a `PluginSource` by scheme (`crates/engine/src/resolve/mod.rs`):
 
 ```rust
 pub enum PluginSource {
@@ -113,12 +113,12 @@ WASI or `moonlit:plugin` import is satisfied:
 
 | Grant | Enforced in | Mechanism |
 |---|---|---|
-| `network` | `engine/src/host/net.rs` (`AllowlistHooks`) | Wraps the `send_request` hook of `wasi:http/outgoing-handler`. The request's authority is matched against a `GlobSet` built from `permissions.network`. A miss is denied and logged as a warning naming the blocked host and the `permissions` key to add, and the request never leaves the sandbox. |
-| `exec` | `engine/src/host/imports.rs` (`ProcessHost::spawn`/`run`) | The `moonlit:plugin/process` implementation checks `cmd.program` against a `GlobSet` built from `permissions.exec` before spawning anything, and a miss is denied and logged the same way. What does get spawned is an ordinary OS process: its `cwd` and `env` come from the command, and its stdout and stderr are streamed back line by line. |
-| `env` | `engine/src/host/perms.rs` (`filter_env`) | The process env snapshot is glob-filtered against `permissions.env` *before* it reaches `WasiCtxBuilder`. Non-matching variables are never visible inside the sandbox, not merely hidden by convention. |
-| `filesystem` | `engine/src/host/perms.rs` (`filesystem_perms`) | Maps the `none \| read-only \| read-write` grant to WASI `DirPerms`/`FilePerms`, then either preopens the working directory or, for `none`, skips the preopen entirely. A denied plugin holds no filesystem handle at all, whatever it asks for. |
+| `network` | `crates/engine/src/host/net.rs` (`AllowlistHooks`) | Wraps the `send_request` hook of `wasi:http/outgoing-handler`. The request's authority is matched against a `GlobSet` built from `permissions.network`. A miss is denied and logged as a warning naming the blocked host and the `permissions` key to add, and the request never leaves the sandbox. |
+| `exec` | `crates/engine/src/host/imports.rs` (`ProcessHost::spawn`/`run`) | The `moonlit:plugin/process` implementation checks `cmd.program` against a `GlobSet` built from `permissions.exec` before spawning anything, and a miss is denied and logged the same way. What does get spawned is an ordinary OS process: its `cwd` and `env` come from the command, and its stdout and stderr are streamed back line by line. |
+| `env` | `crates/engine/src/host/perms.rs` (`filter_env`) | The process env snapshot is glob-filtered against `permissions.env` *before* it reaches `WasiCtxBuilder`. Non-matching variables are never visible inside the sandbox, not merely hidden by convention. |
+| `filesystem` | `crates/engine/src/host/perms.rs` (`filesystem_perms`) | Maps the `none \| read-only \| read-write` grant to WASI `DirPerms`/`FilePerms`, then either preopens the working directory or, for `none`, skips the preopen entirely. A denied plugin holds no filesystem handle at all, whatever it asks for. |
 
-All four come together in `PluginInstance::instantiate` (`engine/src/host/mod.rs`), which builds the
+All four come together in `PluginInstance::instantiate` (`crates/engine/src/host/mod.rs`), which builds the
 `Linker` (WASI p2, WASI-HTTP, `moonlit:plugin/host`, and `moonlit:plugin/process`), constructs the
 per-instance `WasiCtx` from the permission mappings above, and instantiates the component against it.
 None of this varies by plugin source: components resolved from `oci://`, `file://`, and
