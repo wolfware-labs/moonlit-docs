@@ -1,0 +1,65 @@
+---
+// Starlight's header, with the docs sections as tabs underneath. The sidebar lists only the
+// current section's pages (see route-middleware.ts), so the tabs are how readers move between them.
+import Default from '@astrojs/starlight/components/Header.astro';
+import { REGISTRY_URL, SECTIONS } from '../../lib/site.mjs';
+
+const current = Astro.url.pathname.split('/').filter(Boolean)[0];
+---
+
+<div class="moonlit-header">
+  <div class="top"><Default /></div>
+  <nav class="tabs" aria-label="Documentation sections">
+    {
+      SECTIONS.map((s) => (
+        <a href={s.href} aria-current={s.prefix === current ? 'page' : undefined}>
+          {s.label}
+        </a>
+      ))
+    }
+    <a href={REGISTRY_URL} class="external">
+      Registry
+      <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"></path></svg>
+    </a>
+  </nav>
+</div>
+
+<style>
+  .moonlit-header {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  .top {
+    flex: 1;
+    min-height: 0;
+  }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-inline: -0.5rem;
+    margin-bottom: calc(-1 * var(--sl-nav-pad-y));
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0.55rem 0.75rem 0.6rem;
+    border-bottom: 2px solid transparent;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-sm);
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .tabs a:hover {
+    color: var(--sl-color-white);
+  }
+  .tabs a[aria-current='page'] {
+    border-bottom-color: var(--sl-color-text-accent);
+    color: var(--sl-color-white);
+    font-weight: 600;
+  }
+</style>

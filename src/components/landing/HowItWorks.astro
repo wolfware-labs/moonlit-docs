@@ -1,0 +1,92 @@
+---
+import Arrow from './Arrow.astro';
+---
+
+<section id="how-it-works" class="container how" aria-labelledby="how-title">
+  <p class="eyebrow">How it works</p>
+  <h2 id="how-title" class="section-title">One file declares it. A wasmtime host runs it.</h2>
+  <p class="lede">
+    Stages flatten into one ordered list of steps. Each step calls one middleware from a plugin and leaves
+    namespaced outputs for the steps after it.
+  </p>
+
+  <ol class="flow">
+    <li class="card">
+      <p class="step">01 · declare</p>
+      <h3>release.yml</h3>
+      <p>Plugins, variables and stages in one YAML file.</p>
+      <code class="chip">plugins · variables · stages</code>
+    </li>
+    <Arrow />
+    <li class="card host">
+      <p class="step">02 · execute</p>
+      <h3>moonlit host</h3>
+      <p>
+        Resolves expressions, enforces grants, runs steps in order. Stops on the first failure unless a
+        step sets <code class="inline-code">continueOnError</code>.
+      </p>
+      <code class="chip">$(output:version:nextVersion)</code>
+    </li>
+    <Arrow />
+    <li class="card">
+      <p class="step">03 · sandbox</p>
+      <h3>WASM plugins</h3>
+      <p>Each plugin is a component that sees only the network hosts, programs and paths you grant it.</p>
+      <code class="chip">permissions: deny by default</code>
+    </li>
+  </ol>
+</section>
+
+<style>
+  .how {
+    padding-block: 112px 96px;
+  }
+  .lede {
+    margin-bottom: 56px;
+  }
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .card {
+    flex: 1 1 260px;
+    padding: 24px;
+    border: 1px solid var(--edge);
+    border-radius: 12px;
+    background: var(--surface);
+  }
+  .host {
+    border-color: var(--moon);
+    background: #151411;
+  }
+  .step {
+    margin: 0 0 6px;
+    font: 500 12px var(--font-mono);
+    color: var(--mute);
+  }
+  .host .step {
+    color: var(--moon);
+  }
+  h3 {
+    margin: 0 0 10px;
+    font: 600 24px/1.15 var(--font-display);
+  }
+  .card > p:not(.step) {
+    margin: 0 0 16px;
+    font-size: 15px;
+    color: var(--mute);
+  }
+  .chip {
+    display: block;
+    padding: 10px 12px;
+    border-radius: 6px;
+    background: var(--panel);
+    font: 400 12px/1.6 var(--font-mono);
+    color: var(--text);
+  }
+</style>

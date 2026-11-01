@@ -1,0 +1,21 @@
+<li class="arrow" aria-hidden="true">
+  <svg width="32" height="16" viewBox="0 0 32 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h26M22 2l6 6-6 6"></path></svg>
+</li>
+
+<style>
+  .arrow {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    color: #525a5b;
+  }
+  @media (max-width: 900px) {
+    .arrow {
+      justify-content: center;
+      width: 100%;
+    }
+    svg {
+      transform: rotate(90deg);
+    }
+  }
+</style>

@@ -1,0 +1,87 @@
+---
+// The hero's one-line install command, picked for the reader's platform before it paints.
+import '../../styles/os.css';
+import CopyIcon from '../CopyIcon.astro';
+import { PLATFORMS } from '../../lib/site.mjs';
+import detect from '../../scripts/os-detect.js?raw';
+---
+
+<script is:inline set:html={detect} />
+<div class="hero-install">
+  {
+    PLATFORMS.map((p) => (
+      <div class="cmd" data-platform={p.id}>
+        <code>
+          <span class="prompt">{p.hero.prompt}</span>
+          {p.hero.command}
+        </code>
+        <button type="button" data-copy={p.hero.command} aria-label="Copy install command">
+          <CopyIcon />
+        </button>
+      </div>
+    ))
+  }
+  <p class="note"><span data-os-note>For macOS</span> · <a href="#install">other platforms</a></p>
+</div>
+
+<script>
+  import '../../scripts/os-client';
+</script>
+
+<style>
+  .hero-install {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .cmd {
+    --platform-display: inline-flex;
+    align-self: flex-start;
+    max-width: 100%;
+    min-height: 48px;
+    border: 1px solid var(--edge-strong);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  /* A long command scrolls inside the box, so the copy button stays on screen on a phone. */
+  code {
+    flex: 1 1 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 0 8px 0 18px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    white-space: nowrap;
+    font: 500 15px var(--font-mono);
+    color: var(--line);
+  }
+  code::-webkit-scrollbar {
+    display: none;
+  }
+  .prompt {
+    color: var(--moon);
+    user-select: none;
+  }
+  button {
+    flex: 0 0 46px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-left: 1px solid var(--edge-strong);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+  }
+  button:hover {
+    color: var(--line);
+  }
+  .note {
+    margin: 0;
+    font-size: 13px;
+    color: var(--mute);
+  }
+</style>

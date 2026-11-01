@@ -1,0 +1,189 @@
+---
+// A top-to-bottom flow diagram built from HTML and CSS rather than SVG, so it follows the theme
+// toggle and reflows on a narrow screen instead of scaling a fixed viewBox down.
+//
+// Every entry in `flow` is one row: a single node, or a group of nodes side by side.
+//
+//   <FlowDiagram
+//     caption="How a run reaches the step loop"
+//     flow={[
+//       { title: 'moonlit CLI', detail: 'arguments, progress, exit codes' },
+//       { group: 'wasmtime host', note: 'denied by default', items: [
+//         { title: 'git', detail: 'tags, commits, push', mono: true },
+//       ] },
+//     ]} />
+
+interface FlowNode {
+  /** Bold first line. For a code-shaped name, set `mono`. */
+  title: string;
+  /** Optional muted second line. */
+  detail?: string;
+  /** Render the title in the monospace face, for plugin and command names. */
+  mono?: boolean;
+}
+
+interface FlowGroup {
+  /** Label for the bounded region, e.g. a sandbox or host boundary. */
+  group: string;
+  /** Optional line under the label, for what holds true across the group. */
+  note?: string;
+  /** Nodes placed side by side inside the boundary. */
+  items: FlowNode[];
+}
+
+type FlowRow = FlowNode | FlowGroup;
+
+interface Props {
+  flow: FlowRow[];
+  /** Rendered as a figcaption, and used as the accessible name. */
+  caption?: string;
+}
+
+const { flow, caption } = Astro.props;
+const isGroup = (row: FlowRow): row is FlowGroup => 'group' in row;
+---
+
+<figure class="flow not-content" aria-label={caption}>
+  {/* An ordered list, because the order of the rows is the meaning of the diagram. */}
+  <ol>
+    {
+      flow.map((row) => (
+        <li class="row">
+          {isGroup(row) ? (
+            <div class="group">
+              <p class="group-label">{row.group}</p>
+              {row.note && <p class="group-note">{row.note}</p>}
+              <div class="group-items">
+                {row.items.map((node) => (
+                  <div class="node inset">
+                    <span class:list={['title', { mono: node.mono }]}>{node.title}</span>
+                    {node.detail && <span class="detail">{node.detail}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div class="node">
+              <span class:list={['title', { mono: row.mono }]}>{row.title}</span>
+              {row.detail && <span class="detail">{row.detail}</span>}
+            </div>
+          )}
+        </li>
+      ))
+    }
+  </ol>
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<style>
+  .flow {
+    margin: 2rem 0;
+  }
+  ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .row {
+    display: flex;
+    justify-content: center;
+  }
+  /* The connector between two rows, drawn on the row's own pseudo-elements. */
+  .row + .row {
+    position: relative;
+    margin-top: 38px;
+  }
+  .row + .row::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: -32px;
+    width: 2px;
+    height: 26px;
+    transform: translateX(-50%);
+    background: var(--sl-color-gray-4);
+  }
+  .row + .row::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: -14px;
+    width: 8px;
+    height: 8px;
+    transform: translateX(-50%) rotate(45deg);
+    border-right: 2px solid var(--sl-color-gray-4);
+    border-bottom: 2px solid var(--sl-color-gray-4);
+  }
+  .node {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    align-items: center;
+    padding: 12px 20px;
+    min-width: 260px;
+    max-width: 460px;
+    text-align: center;
+    border: 1px solid var(--sl-color-hairline-light);
+    border-radius: 10px;
+    background: var(--sl-color-gray-6);
+  }
+  .inset {
+    min-width: 0;
+    flex: 1 1 160px;
+    padding: 10px 14px;
+    border-color: var(--sl-color-accent);
+    background: var(--sl-color-bg);
+  }
+  .title {
+    font: 600 16px/1.3 var(--font-display);
+    color: var(--sl-color-white);
+  }
+  .title.mono {
+    font: 500 14px/1.3 var(--font-mono);
+  }
+  .detail {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--sl-color-gray-3);
+  }
+  .group {
+    width: 100%;
+    padding: 14px 16px 16px;
+    border: 1px dashed var(--sl-color-accent);
+    border-radius: 12px;
+    background: var(--sl-color-bg-sidebar);
+  }
+  .group-label {
+    margin: 0;
+    font: 600 15px/1.3 var(--font-display);
+    color: var(--sl-color-text-accent);
+  }
+  .group-note {
+    margin: 2px 0 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--sl-color-gray-3);
+  }
+  .group-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  figcaption {
+    margin-top: 12px;
+    font-size: 13px;
+    text-align: center;
+    color: var(--sl-color-gray-3);
+  }
+  /* On a narrow screen the grouped nodes stack rather than shrinking into unreadable columns. */
+  @media (max-width: 640px) {
+    .node {
+      min-width: 0;
+      width: 100%;
+    }
+    .group-items {
+      flex-direction: column;
+    }
+  }
+</style>

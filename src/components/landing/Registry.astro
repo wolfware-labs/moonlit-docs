@@ -1,0 +1,81 @@
+---
+import { REGISTRY_URL } from '../../lib/site.mjs';
+---
+
+<section class="container registry" aria-labelledby="registry-title">
+  <div class="panel">
+    <div class="copy">
+      <p class="eyebrow">Plugin registry</p>
+      <h2 id="registry-title" class="section-title">Every plugin, documented from its own package.</h2>
+      <p class="lede">
+        Middlewares, config, outputs and required permissions are read straight from each published plugin,
+        so the page always matches the version you pull.
+      </p>
+      <div class="actions">
+        <a class="btn btn-primary" href={REGISTRY_URL}>
+          Browse the registry
+          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"></path></svg>
+        </a>
+        <a class="btn btn-ghost" href="/guide/concepts/plugins/">How plugins work</a>
+      </div>
+    </div>
+    <div class="file">
+      <div class="name">release.yml</div>
+      <pre class="snippet"><span class="c"># copy the reference from the plugin's registry page</span>
+<span class="k">plugins</span>:
+  - <span class="k">name</span>: sr
+    <span class="k">url</span>: <span class="s">"oci://registry.moonlit.rs/</span>
+<span class="s">          wolfware/semantic-release:1.0.0"</span>
+  - <span class="k">name</span>: notify
+    <span class="k">url</span>: <span class="s">"oci://ghcr.io/acme/notify:0.3.1"</span></pre>
+    </div>
+  </div>
+</section>
+
+<style>
+  .registry {
+    padding-block: 104px;
+  }
+  .panel {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 48px;
+    padding: 48px;
+    border: 1px solid var(--edge);
+    border-radius: 16px;
+    background: var(--surface);
+  }
+  .copy {
+    flex: 1 1 380px;
+    min-width: 0;
+  }
+  .lede {
+    margin-bottom: 28px;
+    max-width: 480px;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .file {
+    flex: 1 1 440px;
+    min-width: 0;
+    border: 1px solid var(--edge);
+    border-radius: 12px;
+    background: var(--panel);
+    overflow: hidden;
+  }
+  .name {
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--edge-soft);
+    font: 500 12.5px var(--font-mono);
+    color: var(--line);
+  }
+  @media (max-width: 720px) {
+    .panel {
+      padding: 28px 20px;
+    }
+  }
+</style>

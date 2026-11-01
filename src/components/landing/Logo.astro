@@ -1,0 +1,25 @@
+---
+interface Props {
+  size?: number;
+}
+const { size = 34 } = Astro.props;
+---
+
+<a class="logo" href="/">
+  <img src="/logo.png" alt="" width={size} height={size} />
+  <span>moonlit</span>
+</a>
+
+<style>
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--line);
+    text-decoration: none;
+    font: 700 24px/1 var(--font-display);
+  }
+  .logo:hover {
+    color: var(--line);
+  }
+</style>

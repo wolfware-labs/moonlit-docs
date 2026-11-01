@@ -9,13 +9,13 @@ COPY package*.json ./
 RUN npm ci --no-fund --no-audit
 
 COPY . .
-RUN npm run docs:build
+RUN npm run build
 
 FROM nginx:1.28.2-alpine
 
 RUN apk upgrade --no-cache
 
-COPY --from=build /app/.vitepress/dist /app
+COPY --from=build /app/dist /app
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80

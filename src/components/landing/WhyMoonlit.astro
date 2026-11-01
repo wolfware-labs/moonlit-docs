@@ -1,0 +1,87 @@
+<section class="why" aria-labelledby="why-title">
+  <div class="container inner">
+    <p class="eyebrow">Why Moonlit</p>
+    <h2 id="why-title" class="section-title">Plugins you can trust with your release credentials.</h2>
+    <div class="grid">
+      <article>
+        <div class="text">
+          <h3>Deny by default</h3>
+          <p>
+            A plugin with no <code class="inline-code">permissions</code> block gets zero capabilities.
+            Grants are explicit and per plugin.
+          </p>
+        </div>
+        <pre class="snippet"><span class="k">permissions</span>:
+  <span class="k">network</span>: [<span class="s">"api.github.com"</span>]
+  <span class="k">exec</span>: [<span class="s">"git"</span>]</pre>
+      </article>
+      <article>
+        <div class="text">
+          <h3>Outputs flow forward</h3>
+          <p>Every step publishes namespaced outputs. Later steps read them with one expression syntax.</p>
+        </div>
+        <pre class="snippet"><span class="k">branch</span>: $(<span class="f">output:repo:branch</span>)
+<span class="k">version</span>: $(<span class="f">output:version:nextFullVersion</span>)
+<span class="k">project</span>: $(<span class="f">vars:projectPath</span>)
+<span class="k">token</span>: $(<span class="f">GITHUB_TOKEN</span>)</pre>
+      </article>
+      <article>
+        <div class="text">
+          <h3>Pulled like images</h3>
+          <p>
+            Plugins ship over OCI, from registry.moonlit.rs or any compliant registry. Write them in any
+            language that targets WASI Preview 2.
+          </p>
+        </div>
+        <pre class="snippet"><span class="k">url</span>: <span class="s">"oci://registry.moonlit.rs/</span>
+<span class="s">      wolfware/semantic-release:1.0.0"</span>
+<span class="c"># or your own registry</span>
+<span class="k">url</span>: <span class="s">"oci://ghcr.io/acme/notify:0.3.1"</span></pre>
+      </article>
+    </div>
+  </div>
+</section>
+
+<style>
+  .why {
+    border-top: 1px solid var(--edge-soft);
+    background: var(--panel);
+  }
+  .inner {
+    padding-block: 104px;
+  }
+  .section-title {
+    max-width: 760px;
+    margin-bottom: 56px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+  }
+  article {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--edge);
+    border-radius: 12px;
+    background: var(--bg);
+    overflow: hidden;
+  }
+  .text {
+    padding: 24px 24px 18px;
+  }
+  h3 {
+    margin: 0 0 8px;
+    font: 600 24px/1.15 var(--font-display);
+  }
+  .text p {
+    margin: 0;
+    font-size: 15px;
+    color: var(--mute);
+  }
+  .snippet {
+    margin-top: auto;
+    border-top: 1px solid var(--edge-soft);
+    font-size: 12.5px;
+  }
+</style>

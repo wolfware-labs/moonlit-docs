@@ -1,0 +1,70 @@
+---
+import InstallCommand from '../InstallCommand.astro';
+---
+
+<section id="install" class="get-started" aria-labelledby="install-title">
+  <div class="container inner">
+    <div class="copy">
+      <p class="eyebrow">Get started</p>
+      <h2 id="install-title" class="section-title">Install, write release.yml, run.</h2>
+      <ol>
+        <li><span class="num">1</span><span>Install the binary for your platform.</span></li>
+        <li><span class="num">2</span><span>Save a pipeline as <code class="inline-code">release.yml</code>, or copy one from the <a href="/cookbook/">cookbook</a>.</span></li>
+        <li><span class="num">3</span><span>Run <code class="inline-code">moonlit run</code> locally or in <a href="/guide/github-actions/">GitHub Actions</a>.</span></li>
+      </ol>
+    </div>
+    <div class="widget"><InstallCommand /></div>
+  </div>
+</section>
+
+<style>
+  .get-started {
+    border-top: 1px solid var(--edge-soft);
+    background: var(--panel);
+  }
+  .inner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 56px;
+    padding-block: 104px;
+  }
+  .copy {
+    flex: 1 1 340px;
+    min-width: 0;
+  }
+  ol {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 16px;
+    color: var(--mute);
+  }
+  li {
+    display: flex;
+    gap: 14px;
+  }
+  .num {
+    flex: 0 0 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--edge-strong);
+    border-radius: 50%;
+    font: 600 13px var(--font-mono);
+    color: var(--line);
+  }
+  li:first-child .num {
+    border-color: var(--moon);
+    color: var(--moon);
+  }
+  .widget {
+    flex: 1 1 560px;
+    min-width: 0;
+  }
+  .widget :global(.install) {
+    margin: 0;
+  }
+</style>
