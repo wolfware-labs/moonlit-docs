@@ -5,23 +5,50 @@ const LABELS: Record<string, string> = { macos: 'macOS', linux: 'Linux', windows
 
 function sync() {
   const os = root.dataset.os && root.dataset.os in LABELS ? root.dataset.os : 'macos';
+  // Roving tabindex: only the selected tab is in the Tab order; arrow keys move between the rest.
   for (const tab of document.querySelectorAll<HTMLElement>('[data-os-pick]')) {
-    tab.setAttribute('aria-selected', String(tab.dataset.osPick === os));
+    const selected = tab.dataset.osPick === os;
+    tab.setAttribute('aria-selected', String(selected));
+    tab.tabIndex = selected ? 0 : -1;
   }
   for (const note of document.querySelectorAll<HTMLElement>('[data-os-note]')) {
     note.textContent = `${root.dataset.osDetected === os ? 'Detected' : 'For'} ${LABELS[os]}`;
   }
 }
 
+function pick(os: string) {
+  root.dataset.os = os;
+  try {
+    localStorage.setItem('moonlit-os', os);
+  } catch {}
+  sync();
+}
+
+// Arrow keys, Home and End move between platform tabs and select the one they land on, as in the
+// WAI-ARIA tabs pattern.
+document.addEventListener('keydown', (event) => {
+  const tab = (event.target as Element | null)?.closest<HTMLElement>('[role="tab"][data-os-pick]');
+  const list = tab?.closest('[role="tablist"]');
+  if (!tab || !list) return;
+  const tabs = [...list.querySelectorAll<HTMLElement>('[role="tab"][data-os-pick]')];
+  const i = tabs.indexOf(tab);
+  const next =
+    event.key === 'ArrowRight' ? tabs[(i + 1) % tabs.length]
+    : event.key === 'ArrowLeft' ? tabs[(i - 1 + tabs.length) % tabs.length]
+    : event.key === 'Home' ? tabs[0]
+    : event.key === 'End' ? tabs[tabs.length - 1]
+    : null;
+  if (!next) return;
+  event.preventDefault();
+  pick(next.dataset.osPick!);
+  next.focus();
+});
+
 document.addEventListener('click', (event) => {
   const target = (event.target as Element | null)?.closest<HTMLElement>('[data-os-pick], [data-copy]');
   if (!target) return;
   if (target.dataset.osPick) {
-    root.dataset.os = target.dataset.osPick;
-    try {
-      localStorage.setItem('moonlit-os', target.dataset.osPick);
-    } catch {}
-    sync();
+    pick(target.dataset.osPick);
     return;
   }
   copy(target);

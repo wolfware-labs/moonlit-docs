@@ -5,6 +5,14 @@ import '../styles/os.css';
 import CopyIcon from './CopyIcon.astro';
 import { PLATFORMS } from '../lib/site.mjs';
 import detect from '../scripts/os-detect.js?raw';
+
+interface Props {
+  /** Prefix for the tab and panel ids. Only needs changing if a page shows the picker twice. */
+  id?: string;
+}
+const { id = 'install' } = Astro.props;
+const tabId = (os: string) => `${id}-tab-${os}`;
+const panelId = (os: string) => `${id}-panel-${os}`;
 ---
 
 <script is:inline set:html={detect} />
@@ -12,7 +20,15 @@ import detect from '../scripts/os-detect.js?raw';
   <div class="tabs" role="tablist" aria-label="Operating system">
     {
       PLATFORMS.map((p) => (
-        <button type="button" role="tab" data-os-pick={p.id} aria-selected="false">
+        <button
+          type="button"
+          role="tab"
+          id={tabId(p.id)}
+          aria-controls={panelId(p.id)}
+          aria-selected={p.id === 'macos' ? 'true' : 'false'}
+          tabindex={p.id === 'macos' ? 0 : -1}
+          data-os-pick={p.id}
+        >
           {p.label}
         </button>
       ))
@@ -20,7 +36,7 @@ import detect from '../scripts/os-detect.js?raw';
   </div>
   {
     PLATFORMS.map((p) => (
-      <div class="panel" data-platform={p.id} role="tabpanel" aria-label={p.label}>
+      <div class="panel" id={panelId(p.id)} data-platform={p.id} role="tabpanel" aria-labelledby={tabId(p.id)}>
         <p class="label">{p.primary.title} · recommended</p>
         <div class="primary">
           <code>{p.primary.command}</code>
