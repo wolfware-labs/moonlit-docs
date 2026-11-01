@@ -33,12 +33,20 @@ get() {
 }
 header() { grep -i "^$1:" "$tmp/h" | head -1 | cut -d: -f2- | tr -d '\r' | sed 's/^ *//'; }
 
+# The server-level security headers. A location with its own add_header drops them unless it
+# repeats every one, so each response checked here must carry the full set.
+security_headers() {
+  [ "$(header X-Content-Type-Options)" = "nosniff" ] || fail "$1 X-Content-Type-Options"
+  [ "$(header X-Frame-Options)" = "SAMEORIGIN" ] || fail "$1 X-Frame-Options"
+  [ "$(header X-XSS-Protection)" = "1; mode=block" ] || fail "$1 X-XSS-Protection"
+  [ "$(header Referrer-Policy)" = "strict-origin-when-cross-origin" ] || fail "$1 Referrer-Policy"
+}
+
 get /
 [ "$status" = 200 ] || fail "/ returns 200 (got $status)"
 grep -q '<title>Moonlit' "$tmp/b" || fail "/ is the landing page"
 ok "/ returns the landing page"
-[ "$(header X-Content-Type-Options)" = "nosniff" ] || fail "/ X-Content-Type-Options is nosniff"
-[ "$(header Referrer-Policy)" = "strict-origin-when-cross-origin" ] || fail "/ Referrer-Policy"
+security_headers /
 ok "/ sends the security headers"
 cp "$tmp/b" "$tmp/index.html"
 
@@ -77,5 +85,5 @@ css="$(grep -o '/_astro/[^"]*\.css' "$tmp/index.html" | head -1)"
 get "$css"
 [ "$status" = 200 ] || fail "$css returns 200 (got $status)"
 [ "$(header Cache-Control)" = "public, max-age=31536000, immutable" ] || fail "$css is cached as immutable (got $(header Cache-Control))"
-[ "$(header X-Content-Type-Options)" = "nosniff" ] || fail "$css keeps security headers"
+security_headers "$css"
 ok "$css is immutable and keeps security headers"
