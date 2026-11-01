@@ -1,0 +1,61 @@
+---
+// Facts about Moonlit, separated by the moon waxing from crescent to full.
+const LIT = '#e9dbb4';
+const phases = [
+  `<path d="M6 1A5 5 0 0 1 6 11A3 5 0 0 0 6 1Z" fill="${LIT}"/>`, // waxing crescent
+  `<path d="M6 1A5 5 0 0 1 6 11Z" fill="${LIT}"/>`, // first quarter
+  `<path d="M6 1A5 5 0 0 1 6 11A3 5 0 0 1 6 1Z" fill="${LIT}"/>`, // waxing gibbous
+  `<circle cx="6" cy="6" r="5" fill="${LIT}"/>`, // full
+];
+const facts = [
+  'One native binary',
+  'WASI Preview 2 components',
+  'Deny-by-default sandbox',
+  'Plugins over OCI',
+  'MIT OR Apache-2.0',
+];
+---
+
+<div class="band">
+  <ul class="container">
+    {
+      facts.map((fact, i) => (
+        <li>
+          {i > 0 && (
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+              <circle cx="6" cy="6" r="5" fill="#2a2f31" />
+              <Fragment set:html={phases[i - 1]} />
+            </svg>
+          )}
+          <span>{fact}</span>
+        </li>
+      ))
+    }
+  </ul>
+</div>
+
+<style>
+  .band {
+    border-bottom: 1px solid var(--edge-soft);
+    background: var(--panel);
+  }
+  ul {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 12px 28px;
+    margin: 0 auto;
+    padding-block: 18px;
+    list-style: none;
+    font: 500 13px var(--font-mono);
+    color: var(--mute);
+  }
+  li {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+  }
+  svg {
+    flex: 0 0 12px;
+  }
+</style>

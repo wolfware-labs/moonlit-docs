@@ -1,0 +1,92 @@
+---
+import Logo from './Logo.astro';
+import { REGISTRY_URL, REPOSITORY } from '../../lib/site.mjs';
+
+const links = [
+  { label: 'Guide', href: '/guide/' },
+  { label: 'Reference', href: '/reference/' },
+  { label: 'Cookbook', href: '/cookbook/' },
+  { label: 'Registry', href: REGISTRY_URL },
+];
+---
+
+<nav class="container nav" aria-label="Main">
+  <Logo />
+  <ul>
+    {
+      links.map((l) => (
+        <li>
+          <a href={l.href}>{l.label}</a>
+        </li>
+      ))
+    }
+  </ul>
+  <div class="actions">
+    <a class="docs" href="/guide/">Docs</a>
+    <a class="icon" href={REPOSITORY} aria-label="Moonlit on GitHub">
+      <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"></path></svg>
+    </a>
+  </div>
+</nav>
+
+<style>
+  .nav {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding-block: 18px;
+  }
+  ul {
+    display: flex;
+    gap: 28px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 15px;
+    font-weight: 500;
+  }
+  ul a,
+  .docs {
+    color: var(--text);
+    text-decoration: none;
+  }
+  ul a:hover,
+  .docs:hover {
+    color: var(--line);
+  }
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  /* Phones drop the section links for a single Docs link. */
+  .docs {
+    display: none;
+    padding: 10px 12px;
+    font-weight: 600;
+  }
+  /* A dark chip, so the icon stays readable where it sits over the moon. */
+  .icon {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--edge-strong);
+    border-radius: 50%;
+    background: rgb(11 13 15 / 88%);
+    color: var(--text);
+  }
+  .icon:hover {
+    color: var(--line);
+  }
+  @media (max-width: 720px) {
+    ul {
+      display: none;
+    }
+    .docs {
+      display: inline-block;
+    }
+  }
+</style>

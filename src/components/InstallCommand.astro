@@ -1,0 +1,153 @@
+---
+// The recommended install command for the reader's platform, with the other channels under it.
+// Used on the landing page and in the installation guide.
+import '../styles/os.css';
+import CopyIcon from './CopyIcon.astro';
+import { PLATFORMS } from '../lib/site.mjs';
+import detect from '../scripts/os-detect.js?raw';
+---
+
+<script is:inline set:html={detect} />
+<div class="install not-content">
+  <div class="tabs" role="tablist" aria-label="Operating system">
+    {
+      PLATFORMS.map((p) => (
+        <button type="button" role="tab" data-os-pick={p.id} aria-selected="false">
+          {p.label}
+        </button>
+      ))
+    }
+  </div>
+  {
+    PLATFORMS.map((p) => (
+      <div class="panel" data-platform={p.id} role="tabpanel" aria-label={p.label}>
+        <p class="label">{p.primary.title} · recommended</p>
+        <div class="primary">
+          <code>{p.primary.command}</code>
+          <button type="button" class="copy" data-copy={p.primary.command} aria-label="Copy command">
+            <CopyIcon />
+          </button>
+        </div>
+        <p class="label others-label">Other channels</p>
+        <dl>
+          {p.others.map((o) => (
+            <div class="other">
+              <dt>{o.title}</dt>
+              <dd>
+                <code>{o.command}</code>
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    ))
+  }
+</div>
+
+<script>
+  import '../scripts/os-client';
+</script>
+
+<style>
+  .install {
+    --tab-active-bg: var(--sl-color-gray-6, #23282a);
+    --tab-active-fg: var(--sl-color-white, #efefea);
+    margin: 1.5rem 0;
+    border: 1px solid var(--sl-color-hairline-light, #2a2f31);
+    border-radius: 12px;
+    background: var(--sl-color-bg, #0b0d0f);
+    overflow: hidden;
+  }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 6px;
+    border-bottom: 1px solid var(--sl-color-hairline, #202527);
+  }
+  .tabs button {
+    min-height: 44px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--sl-color-gray-3, #a0a6a3);
+    font: 600 15px var(--font-body);
+    cursor: pointer;
+  }
+  .tabs button:hover {
+    color: var(--sl-color-white, #efefea);
+  }
+  .panel {
+    padding: 22px 24px;
+  }
+  .label {
+    margin: 0 0 10px;
+    font: 500 12px var(--font-mono);
+    color: var(--sl-color-gray-3, #a0a6a3);
+  }
+  .others-label {
+    margin-top: 22px;
+  }
+  .primary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 10px 10px 16px;
+    border: 1px solid var(--sl-color-gray-5, #353b3d);
+    border-radius: 8px;
+    background: var(--sl-color-bg-sidebar, #08090a);
+  }
+  .primary code,
+  .other code {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+    font: 400 13.5px var(--font-mono);
+    color: var(--sl-color-white, #efefea);
+  }
+  .copy {
+    flex: 0 0 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--sl-color-gray-5, #353b3d);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--sl-color-gray-2, #d0d3cf);
+    cursor: pointer;
+  }
+  dl {
+    margin: 0;
+  }
+  .other {
+    display: flex;
+    gap: 16px;
+    padding: 10px 0;
+    border-top: 1px solid var(--sl-color-hairline, #1b1f21);
+    font: 400 13px var(--font-mono);
+  }
+  dt {
+    flex: 0 0 130px;
+    color: var(--sl-color-gray-3, #a0a6a3);
+  }
+  dd {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    display: flex;
+  }
+  .other code {
+    color: var(--sl-color-gray-2, #d0d3cf);
+    font-size: 13px;
+  }
+  @media (max-width: 560px) {
+    .other {
+      flex-direction: column;
+      gap: 4px;
+    }
+    dt {
+      flex-basis: auto;
+    }
+  }
+</style>

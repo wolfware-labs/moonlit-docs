@@ -1,0 +1,49 @@
+---
+import '../styles/landing.css';
+import { DESCRIPTION, REPOSITORY, SHARE_IMAGE, SITE_NAME, TAGLINE } from '../lib/site.mjs';
+
+const title = `${SITE_NAME} - ${TAGLINE}`;
+const canonical = new URL(Astro.url.pathname, Astro.site).href;
+const image = new URL(SHARE_IMAGE, Astro.site).href;
+const structured = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: SITE_NAME,
+  description: DESCRIPTION,
+  url: canonical,
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Windows, Linux, macOS',
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  codeRepository: REPOSITORY,
+  license: [`${REPOSITORY}/blob/main/LICENSE-MIT`, `${REPOSITORY}/blob/main/LICENSE-APACHE`],
+  author: { '@type': 'Organization', name: 'Wolfware', url: 'https://wolfware.dev' },
+};
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={DESCRIPTION} />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <title>{title}</title>
+    <link rel="canonical" href={canonical} />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={SITE_NAME} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={DESCRIPTION} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={image} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={DESCRIPTION} />
+    <meta name="twitter:image" content={image} />
+    <script type="application/ld+json" set:html={JSON.stringify(structured)} />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

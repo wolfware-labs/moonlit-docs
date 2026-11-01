@@ -58,5 +58,6 @@ nunit-*.xml
 .env
 
 node_modules/
-.vitepress/cache/
-.vitepress/dist/
+dist/
+.astro/
+.playwright-mcp/

@@ -1,0 +1,96 @@
+---
+import Logo from './Logo.astro';
+import { REGISTRY_URL, REPOSITORY } from '../../lib/site.mjs';
+
+const columns = [
+  {
+    title: 'Docs',
+    links: [
+      { label: 'Guide', href: '/guide/' },
+      { label: 'Reference', href: '/reference/' },
+      { label: 'Cookbook', href: '/cookbook/' },
+    ],
+  },
+  {
+    title: 'Project',
+    links: [
+      { label: 'GitHub', href: REPOSITORY },
+      { label: 'Releases', href: `${REPOSITORY}/releases` },
+      { label: 'Registry', href: REGISTRY_URL },
+      { label: 'Contributing', href: '/guide/advanced/contributing/' },
+    ],
+  },
+];
+---
+
+<footer>
+  <div class="container inner">
+    <div class="about">
+      <Logo size={30} />
+      <p>Open source under MIT OR Apache-2.0. Made by the <a href="https://wolfware.dev">Wolfware</a> team.</p>
+    </div>
+    <div class="columns">
+      {
+        columns.map((c) => (
+          <nav aria-label={c.title}>
+            <p class="title">{c.title}</p>
+            <ul>
+              {c.links.map((l) => (
+                <li>
+                  <a href={l.href}>{l.label}</a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ))
+      }
+    </div>
+  </div>
+</footer>
+
+<style>
+  footer {
+    border-top: 1px solid var(--edge-soft);
+  }
+  .inner {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 32px;
+    padding-block: 48px;
+  }
+  .about {
+    max-width: 340px;
+  }
+  .about p {
+    margin: 12px 0 0;
+    font-size: 14px;
+    color: var(--mute);
+  }
+  .columns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 56px;
+    font-size: 14px;
+  }
+  .title {
+    margin: 0 0 10px;
+    font: 500 12px var(--font-mono);
+    color: var(--mute);
+  }
+  ul {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  ul a {
+    color: var(--text);
+    text-decoration: none;
+  }
+  ul a:hover {
+    color: var(--line);
+  }
+</style>

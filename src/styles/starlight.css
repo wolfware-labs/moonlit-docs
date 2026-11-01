@@ -1,0 +1,157 @@
+/* Map Moonlit tokens onto Starlight. Dark theme first, light theme below. */
+:root {
+  --sl-font: var(--font-body);
+  --sl-font-mono: var(--font-mono);
+
+  --sl-color-white: var(--line);
+  --sl-color-gray-1: #e2e3df;
+  --sl-color-gray-2: var(--text);
+  --sl-color-gray-3: var(--mute);
+  --sl-color-gray-4: #5b6263;
+  --sl-color-gray-5: var(--edge);
+  --sl-color-gray-6: var(--surface);
+  --sl-color-black: var(--bg);
+
+  --sl-color-accent-low: #1e1d18;
+  --sl-color-accent: var(--moon-deep);
+  --sl-color-accent-high: var(--moon);
+
+  --sl-color-text-accent: var(--moon);
+  --sl-color-bg: var(--bg);
+  --sl-color-bg-nav: var(--bg);
+  --sl-color-bg-sidebar: #090b0c;
+  --sl-color-hairline: var(--edge-soft);
+  --sl-color-hairline-light: var(--edge);
+  --sl-color-hairline-shade: var(--panel);
+
+  --sl-color-orange-low: var(--moon-tint);
+  --sl-color-orange: var(--moon-tint-edge);
+  --sl-color-orange-high: var(--moon);
+
+  /* Room for the section tabs under the header's top row. */
+  --sl-nav-height: 6.25rem;
+  --moonlit-toc-width: 15rem;
+}
+
+@media (min-width: 50rem) {
+  :root {
+    --sl-nav-height: 6.5rem;
+    --sl-sidebar-width: 18rem;
+  }
+}
+
+:root[data-theme='light'] {
+  --sl-color-white: #121516;
+  --sl-color-gray-1: #1d2123;
+  --sl-color-gray-2: #33393b;
+  --sl-color-gray-3: #535a5b;
+  --sl-color-gray-4: #8c9291;
+  --sl-color-gray-5: #d9d8d0;
+  --sl-color-gray-6: #efede6;
+  --sl-color-gray-7: #f6f5f0;
+  --sl-color-black: #fbfaf6;
+
+  --sl-color-accent-low: #efe6cc;
+  --sl-color-accent: #7a6430;
+  --sl-color-accent-high: #4f3f17;
+  --sl-color-text-accent: #6b5626;
+
+  --sl-color-bg: #fbfaf6;
+  --sl-color-bg-nav: #fbfaf6;
+  --sl-color-bg-sidebar: #f4f2eb;
+  --sl-color-hairline: #e3e1d8;
+  --sl-color-hairline-light: #d9d8d0;
+  --sl-color-hairline-shade: #efede6;
+
+  --sl-color-orange-low: #f6efdb;
+  --sl-color-orange: #b49a55;
+  --sl-color-orange-high: #4f3f17;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+}
+
+.sl-markdown-content :is(h2, h3) {
+  letter-spacing: -0.01em;
+}
+
+/* Section labels in the sidebar and table of contents. */
+.sidebar-content .group-label .large,
+starlight-toc h2 {
+  font-family: var(--font-display);
+  font-size: var(--sl-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sl-color-gray-3);
+}
+
+.sidebar-content a[aria-current='page'] {
+  background: var(--sl-color-accent-low);
+  color: var(--sl-color-text-accent);
+  font-weight: 600;
+}
+
+.sl-markdown-content :not(pre) > code:not(:where(.not-content *)) {
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: var(--sl-color-gray-6);
+}
+
+/* With no edit link and no last-updated date the meta row is empty but still takes a gap. */
+footer .meta:not(:has(*)) {
+  display: none;
+}
+
+/* Wide screens: the text column fills the space between the sidebar and a fixed-width table of
+   contents on the right edge. */
+@media (min-width: 72rem) {
+  :root {
+    --sl-content-width: 100%;
+  }
+  .main-pane {
+    --sl-content-margin-inline: 0;
+  }
+  [data-has-sidebar][data-has-toc] .main-pane {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+  }
+  [data-has-sidebar][data-has-toc] .right-sidebar-container {
+    flex: none;
+    width: var(--moonlit-toc-width);
+  }
+  .right-sidebar {
+    width: var(--moonlit-toc-width);
+  }
+  /* Starlight sizes this from --sl-sidebar-width, which is the left sidebar's width here. */
+  .right-sidebar-panel .sl-container {
+    width: auto;
+    max-width: none;
+  }
+}
+
+/* Keep prose at a readable measure while the column itself fills the space. */
+@media (min-width: 72rem) {
+  .main-pane .sl-container {
+    max-width: 52rem;
+  }
+}
+
+/* Center the search in the window; the title and the right-hand buttons share the rest. */
+@media (min-width: 50rem) {
+  .moonlit-header .header {
+    grid-template-columns: 1fr minmax(0, 26rem) 1fr;
+  }
+  .moonlit-header .header > :nth-child(2) button {
+    width: 100%;
+    max-width: none;
+  }
+  .moonlit-header .header > :nth-child(3) {
+    justify-self: end;
+  }
+}

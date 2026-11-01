@@ -1,0 +1,40 @@
+@import '@fontsource/chakra-petch/500.css';
+@import '@fontsource/chakra-petch/600.css';
+@import '@fontsource/chakra-petch/700.css';
+@import '@fontsource/ibm-plex-sans/400.css';
+@import '@fontsource/ibm-plex-sans/500.css';
+@import '@fontsource/ibm-plex-sans/600.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+@import '@fontsource/ibm-plex-mono/600.css';
+
+/* Colors come from the logo: a grey low-poly wolf against a pale cream moon, on near-black. */
+:root {
+  --bg: #0b0d0f;
+  --panel: #08090a;
+  --surface: #111416;
+  --raise: #191c1e;
+  --edge: #2a2f31;
+  --edge-soft: #202527;
+  --edge-strong: #353b3d;
+  --line: #efefea;
+  --text: #d0d3cf;
+  --mute: #a0a6a3;
+  --dim: #7a8180;
+  --moon: #e9dbb4;
+  --moon-hover: #f6eedb;
+  --moon-deep: #c9b98e;
+  --crater: #dfd0aa;
+  --moon-tint: #161512;
+  --moon-tint-edge: #4a4535;
+  --code-key: #aab3ae;
+  --code-string: #a7c9b0;
+  --code-error: #f0a37a;
+
+  /* Chakra Petch's cut corners echo the faceted wolf; Plex carries the reading and the code. */
+  --font-display: 'Chakra Petch', 'IBM Plex Sans', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --content-max: 1200px;
+}

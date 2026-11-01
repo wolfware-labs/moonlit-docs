@@ -1,7 +1,9 @@
 .git
 .gitignore
 node_modules
-.vitepress/cache
-.vitepress/dist
+dist
+.astro
+.playwright-mcp
+.remember
 *.md.snap
 .DS_Store

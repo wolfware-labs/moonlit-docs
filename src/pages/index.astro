@@ -1,0 +1,25 @@
+---
+import Landing from '../layouts/Landing.astro';
+import Nav from '../components/landing/Nav.astro';
+import Hero from '../components/landing/Hero.astro';
+import FactsBand from '../components/landing/FactsBand.astro';
+import HowItWorks from '../components/landing/HowItWorks.astro';
+import WhyMoonlit from '../components/landing/WhyMoonlit.astro';
+import Registry from '../components/landing/Registry.astro';
+import GetStarted from '../components/landing/GetStarted.astro';
+import Footer from '../components/landing/Footer.astro';
+---
+
+<Landing>
+  <Hero>
+    <Nav slot="nav" />
+  </Hero>
+  <main>
+    <FactsBand />
+    <HowItWorks />
+    <WhyMoonlit />
+    <Registry />
+    <GetStarted />
+  </main>
+  <Footer />
+</Landing>

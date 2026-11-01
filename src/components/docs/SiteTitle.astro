@@ -1,0 +1,46 @@
+---
+// The landing page's wordmark, so the docs read as the same site, plus a link to the docs home.
+---
+
+<div class="site-title" translate="no">
+  <a class="wordmark" href="/">
+    <img src="/logo.png" alt="" width="34" height="34" />
+    <span>moonlit</span>
+  </a>
+  <a class="section" href="/guide/">docs</a>
+</div>
+
+<style>
+  .site-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    white-space: nowrap;
+  }
+  .site-title a {
+    text-decoration: none;
+  }
+  .wordmark {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font: 700 22px/1 var(--font-display);
+    color: var(--sl-color-white);
+  }
+  .wordmark img {
+    width: 34px;
+    height: 34px;
+  }
+  .section {
+    padding: 2px 8px;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 999px;
+    font: 500 11px/1.4 var(--font-mono);
+    color: var(--sl-color-gray-3);
+  }
+  .section:hover,
+  .wordmark:hover {
+    color: var(--sl-color-white);
+  }
+</style>

@@ -1,0 +1,20 @@
+/* Show only the current platform's commands. Without JavaScript, macOS shows. */
+[data-platform] {
+  display: none;
+}
+html:not([data-os]) [data-platform='macos'],
+html[data-os='macos'] [data-platform='macos'],
+html[data-os='linux'] [data-platform='linux'],
+html[data-os='windows'] [data-platform='windows'] {
+  display: var(--platform-display, block);
+}
+html:not([data-os]) [data-os-pick='macos'],
+html[data-os='macos'] [data-os-pick='macos'],
+html[data-os='linux'] [data-os-pick='linux'],
+html[data-os='windows'] [data-os-pick='windows'] {
+  background: var(--tab-active-bg);
+  color: var(--tab-active-fg);
+}
+[data-copy][data-copied] {
+  color: var(--copy-done, #a7c9b0);
+}
