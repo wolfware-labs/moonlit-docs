@@ -10,6 +10,8 @@
   try {
     picked = localStorage.getItem('moonlit-os');
   } catch {}
+  // A stale or hand-edited value would match no panel and hide them all.
+  if (!['macos', 'linux', 'windows'].includes(picked)) picked = null;
   root.dataset.osDetected = detected;
   root.dataset.os = picked || detected || 'macos';
 })();

@@ -4,7 +4,7 @@ const root = document.documentElement;
 const LABELS: Record<string, string> = { macos: 'macOS', linux: 'Linux', windows: 'Windows' };
 
 function sync() {
-  const os = root.dataset.os ?? 'macos';
+  const os = root.dataset.os && root.dataset.os in LABELS ? root.dataset.os : 'macos';
   for (const tab of document.querySelectorAll<HTMLElement>('[data-os-pick]')) {
     tab.setAttribute('aria-selected', String(tab.dataset.osPick === os));
   }
@@ -24,10 +24,29 @@ document.addEventListener('click', (event) => {
     sync();
     return;
   }
-  navigator.clipboard?.writeText(target.dataset.copy ?? '').then(() => {
-    target.dataset.copied = '';
-    setTimeout(() => delete target.dataset.copied, 1500);
-  });
+  copy(target);
 });
+
+// The clipboard API is missing outside secure contexts and rejects when permission is denied. In
+// either case, select the command instead so the reader can copy it by hand.
+async function copy(button: HTMLElement) {
+  try {
+    if (!navigator.clipboard) throw new Error('clipboard unavailable');
+    await navigator.clipboard.writeText(button.dataset.copy ?? '');
+    button.dataset.copied = '';
+    setTimeout(() => delete button.dataset.copied, 1500);
+  } catch {
+    const code = button.parentElement?.querySelector('code');
+    const selection = window.getSelection();
+    if (!code || !selection) return;
+    const range = document.createRange();
+    range.selectNodeContents(code);
+    // The hero's command starts with a shell prompt that isn't part of the command.
+    const prompt = code.querySelector('.prompt');
+    if (prompt) range.setStartAfter(prompt);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+}
 
 sync();
