@@ -1,0 +1,68 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-fund --no-audit
+      - run: npm run release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  image:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # Full history and tags, so a tag the release job just pushed is visible.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Find the release tag
+        id: tag
+        run: |
+          tag="$(git tag --points-at HEAD --list 'v*' | sort -V | tail -1)"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+          if [ -z "$tag" ]; then
+            echo "No release tag on this commit, so there is no image to push." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - if: steps.tag.outputs.version != ''
+        run: docker build -t moonlit-docs:ci .
+      - if: steps.tag.outputs.version != ''
+        run: bash scripts/smoke-image.sh moonlit-docs:ci
+      - if: steps.tag.outputs.version != ''
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Push the tested image
+        if: steps.tag.outputs.version != ''
+        run: |
+          for ref in "$IMAGE_REPO:$VERSION" "$IMAGE_REPO:latest"; do
+            docker tag moonlit-docs:ci "$ref"
+            docker push "$ref"
+          done
+        env:
+          IMAGE_REPO: docker.io/wolfware/moonlit-docs
+          VERSION: ${{ steps.tag.outputs.version }}

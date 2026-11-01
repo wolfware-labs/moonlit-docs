@@ -6,7 +6,8 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "typecheck": "astro sync && tsc --noEmit"
+    "typecheck": "astro sync && tsc --noEmit",
+    "release": "semantic-release"
   },
   "dependencies": {
     "@astrojs/markdown-satteri": "^0.4.4",
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.0.13",
+    "semantic-release": "25.0.9",
     "typescript": "^5.8.3"
   }
 }

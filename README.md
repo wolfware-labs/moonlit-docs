@@ -22,7 +22,9 @@ This repository holds the prose. The CLI, the engine, and the plugin development
 | `astro.config.mjs` | Site config, sidebar, Markdown processing, and SEO |
 | `versions.json` | The version list archived doc versions read, copied into the build |
 | `Dockerfile`, `nginx.conf` | The container image the site ships in |
-| `release.yml` | The Moonlit pipeline that builds and releases that image |
+| `release.config.mjs` | semantic-release: which commits release and how tags are named |
+| `.github/workflows/` | `ci.yml` checks pull requests; `deploy.yml` releases and pushes the image from `main` |
+| `scripts/smoke-image.sh` | Runs the built image and checks its routes, redirects and headers |
 
 Per-plugin reference (middlewares, config, outputs, required permissions) is not kept here. The
 [registry](https://registry.moonlit.rs) reads it from each plugin package, so the docs link there
@@ -87,10 +89,27 @@ hook in `astro.config.mjs` copies it into the output, where archived versions fe
 ## Deployment
 
 `Dockerfile` builds the site and serves it from nginx. `nginx.conf` also redirects the old
-`/plugins/*` pages to the registry, and URLs without a trailing slash to their folder.
-`release.yml`, itself a Moonlit pipeline, analyzes commits, calculates the next version, builds and
-pushes `wolfware/moonlit-docs`, and opens a GitHub release.
+`/plugins/*` pages to the registry, `/sitemap.xml` to `/sitemap-index.xml`, and URLs without a
+trailing slash to their folder.
 
-The pipeline only considers commits scoped `docs` (`docs:`, `docs(guide):`, and so on) and halts
-when none are found, so use that scope for anything that should ship. Releases are tagged
-`docs-vX.Y.Z`, keeping the site's versions separate from the CLI's.
+Every pull request runs `ci.yml`: typecheck, a full build (which fails on a dead internal link), and
+an image build checked by `scripts/smoke-image.sh`.
+
+A push to `main` runs `deploy.yml`. Its first job runs
+[semantic-release](https://semantic-release.gitbook.io/), which reads the Conventional Commits since
+the last `v*` tag and, when one calls for it, tags the commit and opens a GitHub release. Nothing is
+committed back to `main`. The second job builds the image from that tagged commit, smoke-tests it,
+and pushes `wolfware/moonlit-docs:<version>` and `:latest` to Docker Hub.
+
+Which commits release:
+
+| Commit type | Release |
+| --- | --- |
+| `feat` | minor |
+| `fix`, `perf`, `docs` | patch |
+| a breaking change (`!` or `BREAKING CHANGE:`) | major |
+| anything else (`chore`, `ci`, `refactor`, `style`, `test`) | none |
+
+`docs` is added to semantic-release's defaults in `release.config.mjs`: here the docs are the
+product, so a docs change has to ship. Pull requests are squash-merged, so the pull request title
+is the commit that counts.
