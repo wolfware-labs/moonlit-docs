@@ -1,6 +1,6 @@
 ---
 title: Configuration File Reference
-description: Detailed reference for Moonlit's YAML pipeline configuration file format
+description: "Property-by-property reference for Moonlit's YAML pipeline file: where moonlit finds release.yml, and every field of plugins, stages and steps"
 ---
 
 This page is the complete property-by-property reference for Moonlit's YAML pipeline file. For a conceptual walkthrough of how configuration is layered, substituted, and evaluated at run time, see [Configuration](../guide/concepts/configuration.md); for how stages and steps execute, see [Stages and Steps](../guide/concepts/stages-steps.md).

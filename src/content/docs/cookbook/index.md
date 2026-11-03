@@ -1,6 +1,6 @@
 ---
 title: Cookbook
-description: Practical, full pipeline recipes for common Moonlit release workflows
+description: "Complete release.yml recipes for common Moonlit workflows: Docker images, npm and NuGet packages, GitHub and GitLab releases, and publishing plugins"
 ---
 
 Practical, end-to-end `release.yml` recipes for common release workflows. Each recipe is a complete pipeline you can adapt directly, with a walkthrough of what every stage and step does.

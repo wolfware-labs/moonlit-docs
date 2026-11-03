@@ -1,6 +1,6 @@
 ---
 title: WIT Contract
-description: The moonlit:plugin WIT world, with the types, host imports, and plugin exports that form the plugin ABI
+description: "The moonlit:plugin@0.3.0 WIT world: the types, host imports, and plugin exports that make up the ABI every Moonlit plugin component targets"
 ---
 
 Every Moonlit plugin is a WebAssembly component targeting the `plugin` world defined by the

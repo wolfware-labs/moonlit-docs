@@ -1,6 +1,6 @@
 ---
 title: Introduction to Moonlit
-description: Learn what Moonlit is and how its Rust and WebAssembly engine runs your release pipelines
+description: "What Moonlit is: a build and release engine written in Rust that reads one YAML file and runs each plugin as a sandboxed WebAssembly component"
 ---
 
 Moonlit ("Bring light to your release process") is a build and release automation engine written in Rust. A single YAML file declares the **plugins**, **stages**, and **steps** of your release pipeline; a `wasmtime`-based host executes that pipeline, running each plugin as a sandboxed WebAssembly component.

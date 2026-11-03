@@ -1,6 +1,6 @@
 ---
 title: Command Line Interface
-description: Reference documentation for the moonlit command-line interface
+description: "Every moonlit command and flag: running and validating pipelines, managing registry credentials, working with plugins, and picking an output mode"
 ---
 
 The `moonlit` binary is the entry point for running pipelines, validating configuration, managing registry credentials, and working with plugins. This page documents every command and flag.

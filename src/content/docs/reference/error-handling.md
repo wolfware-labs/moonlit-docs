@@ -1,6 +1,6 @@
 ---
 title: Error Handling and Troubleshooting
-description: Exit codes and diagnostic output for moonlit run, validate, and other commands
+description: The exit codes moonlit returns, how diagnostics render in pretty, json and plain output, and the messages behind the most common failures
 ---
 
 This page documents how `moonlit` reports failures: the exit codes it returns, how diagnostics render in each output mode, and the messages behind the most common problems.

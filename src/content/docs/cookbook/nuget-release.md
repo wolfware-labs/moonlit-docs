@@ -1,6 +1,6 @@
 ---
 title: NuGet Release Pipeline
-description: A complete Moonlit pipeline that tests, versions, builds, packs, and publishes a NuGet package
+description: A complete Moonlit pipeline that tests a .NET project, computes the next version from conventional commits, and packs and publishes it to nuget.org
 ---
 
 A full pipeline that runs the test suite, computes the next version from conventional commits, builds and packs the project, publishes the package to nuget.org, and tags the release in Git.

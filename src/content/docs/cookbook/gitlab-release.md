@@ -1,6 +1,6 @@
 ---
 title: GitLab Release
-description: A complete Moonlit pipeline that computes a version from conventional commits and publishes a GitLab release
+description: A complete Moonlit pipeline that computes the next version and changelog from conventional commits, tags it in Git, and publishes a GitLab release
 ---
 
 A full pipeline that parses conventional commits, computes the next version and changelog, tags the release in Git, and publishes a GitLab release that comments on and labels the related merge requests and issues.

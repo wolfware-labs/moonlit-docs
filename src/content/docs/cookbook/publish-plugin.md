@@ -1,6 +1,6 @@
 ---
 title: Publish a Plugin
-description: Scaffold, build, inspect, and publish a Moonlit plugin to an OCI registry
+description: Scaffold a Rust plugin crate, build it into a WASI Preview 2 component, inspect the result, and publish it to an OCI registry with the moonlit CLI
 ---
 
 A step-by-step CLI workflow that scaffolds a Rust plugin crate, builds it into a WASI Preview 2 component, inspects the result, and publishes it to an OCI registry so it can be referenced from a `release.yml` anywhere.

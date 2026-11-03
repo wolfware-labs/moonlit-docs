@@ -1,6 +1,6 @@
 ---
 title: Plugin SDK
-description: Reference for the moonlit-pdk crate, the Rust plugin development kit for authoring Moonlit plugins
+description: Reference for moonlit-pdk, the Rust crate that turns writing a Moonlit plugin into implementing a few typed structs instead of WIT bindings
 ---
 
 `moonlit-pdk` (the Moonlit plugin development kit) is the Rust crate that turns writing a Moonlit

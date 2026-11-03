@@ -1,6 +1,6 @@
 ---
 title: Quick Start Guide
-description: Create your first Moonlit pipeline in minutes
+description: Write a minimal release.yml, validate it, preview it with a dry run, and run your first Moonlit pipeline, in four short steps
 ---
 
 This guide walks you through writing a minimal `release.yml` and running it with Moonlit.

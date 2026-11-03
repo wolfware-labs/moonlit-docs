@@ -1,6 +1,6 @@
 ---
 title: Plugins System
-description: Learn how Moonlit's WebAssembly plugin system works and how plugins extend functionality
+description: What a Moonlit plugin is, how the engine loads it as a WebAssembly component, and why almost everything a pipeline does at build time comes from one
 ---
 
 Almost everything Moonlit does at build time comes from a plugin. The engine itself only orders the
