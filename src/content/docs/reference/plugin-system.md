@@ -1,6 +1,6 @@
 ---
 title: Plugin System Architecture
-description: "How Moonlit resolves a plugins: entry, pulls it over OCI, caches it on disk, and sandboxes and instantiates the WebAssembly component"
+description: How Moonlit resolves each plugin a pipeline lists, pulls it over OCI, caches it on disk, and sandboxes and instantiates the WebAssembly component
 ---
 
 This page follows a `plugins:` entry in a pipeline YAML file all the way to a running, sandboxed
