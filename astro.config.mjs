@@ -5,7 +5,17 @@ import { copyFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { satteri } from '@astrojs/markdown-satteri';
 import { mdLinks } from './src/lib/md-links.mjs';
-import { DESCRIPTION, DOCS_REPOSITORY, REPOSITORY, SHARE_IMAGE, SITE, SITE_NAME, TAGLINE } from './src/lib/site.mjs';
+import {
+  DESCRIPTION,
+  DOCS_REPOSITORY,
+  REPOSITORY,
+  SHARE_IMAGE,
+  SHARE_IMAGE_ALT,
+  SHARE_IMAGE_HEIGHT,
+  SHARE_IMAGE_WIDTH,
+  SITE,
+  SITE_NAME,
+} from './src/lib/site.mjs';
 
 const shareImage = new URL(SHARE_IMAGE, SITE).href;
 
@@ -34,8 +44,11 @@ export default defineConfig({
       head: [
         { tag: 'meta', attrs: { property: 'og:site_name', content: SITE_NAME } },
         { tag: 'meta', attrs: { property: 'og:image', content: shareImage } },
+        { tag: 'meta', attrs: { property: 'og:image:width', content: SHARE_IMAGE_WIDTH } },
+        { tag: 'meta', attrs: { property: 'og:image:height', content: SHARE_IMAGE_HEIGHT } },
+        { tag: 'meta', attrs: { property: 'og:image:alt', content: SHARE_IMAGE_ALT } },
         { tag: 'meta', attrs: { name: 'twitter:image', content: shareImage } },
-        { tag: 'meta', attrs: { name: 'twitter:title', content: `${SITE_NAME} - ${TAGLINE}` } },
+        { tag: 'meta', attrs: { name: 'twitter:image:alt', content: SHARE_IMAGE_ALT } },
       ],
       editLink: { baseUrl: `${DOCS_REPOSITORY}/edit/main/` },
       lastUpdated: true,
