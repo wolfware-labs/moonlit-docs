@@ -1,6 +1,6 @@
 ---
 title: Docker Deployment
-description: A complete Moonlit pipeline that versions, builds, pushes, and deploys a Docker image to a remote host
+description: A complete Moonlit pipeline that computes the next version, builds a multi-platform Docker image, pushes it to a registry, and deploys it over SSH
 ---
 
 A full pipeline that computes the next version, builds a multi-platform Docker image, pushes it to a registry, and deploys it to a remote host with `docker compose`.

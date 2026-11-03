@@ -1,6 +1,6 @@
 ---
 title: Semantic-release to GitHub
-description: A complete Moonlit pipeline that computes a version from conventional commits and publishes a GitHub release
+description: A complete Moonlit pipeline that computes a version from conventional commits, tags it, publishes a GitHub release, and posts a Slack notification
 ---
 
 A full pipeline that parses conventional commits, computes the next version and changelog, tags the release in Git, publishes a GitHub release (commenting and labeling the related pull requests and issues), and posts a Slack notification.

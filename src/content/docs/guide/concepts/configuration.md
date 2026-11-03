@@ -1,6 +1,6 @@
 ---
 title: Configuration
-description: Learn how Moonlit's configuration accumulator, value substitution, and conditions work
+description: How Moonlit layers pipeline configuration from several sources, substitutes values with $(...), and uses variables, arguments and conditions
 ---
 
 Moonlit pipelines are YAML files. Most of what makes them dynamic comes from four pieces: the

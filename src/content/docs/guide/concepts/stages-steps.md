@@ -1,6 +1,6 @@
 ---
 title: Stages and Steps
-description: Learn how Moonlit organizes pipeline execution with stages and steps
+description: How a Moonlit pipeline splits into named stages that each hold an ordered list of steps, and how to run part of a pipeline by stage name
 ---
 
 A Moonlit pipeline is organized into stages, and each stage holds an ordered list of steps. This page covers how both work.

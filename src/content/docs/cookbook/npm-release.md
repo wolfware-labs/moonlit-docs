@@ -1,6 +1,6 @@
 ---
 title: npm Release
-description: A complete Moonlit pipeline that tests, builds, and publishes an npm package, then creates a GitHub release
+description: A complete Moonlit pipeline that tests a Node.js project, computes the next version, publishes the package to npm, and creates a GitHub release
 ---
 
 A full pipeline that installs and tests a Node.js project, computes the next version from conventional commits, builds and packs the package, publishes it to an npm registry, and creates a GitHub release.

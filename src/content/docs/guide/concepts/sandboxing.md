@@ -1,6 +1,6 @@
 ---
 title: Sandboxing
-description: Learn how Moonlit sandboxes plugins in WebAssembly and how the deny-by-default permissions model works
+description: How Moonlit runs each plugin as a WebAssembly component with no ambient host access, and how deny-by-default permissions grant what it needs
 ---
 
 Every Moonlit plugin runs as a WebAssembly component with no ambient access to the host. The engine

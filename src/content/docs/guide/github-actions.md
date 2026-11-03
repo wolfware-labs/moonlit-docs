@@ -1,6 +1,6 @@
 ---
 title: GitHub Actions
-description: Install and run Moonlit in a GitHub Actions workflow
+description: Run Moonlit in GitHub Actions with the setup-moonlit action, which installs the CLI on Linux, macOS and Windows runners and caches plugins
 ---
 
 The [`setup-moonlit`](https://github.com/wolfware-labs/setup-moonlit) action installs the Moonlit

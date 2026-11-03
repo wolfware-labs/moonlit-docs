@@ -76,6 +76,15 @@ get /versions.json
 [ "$status" = 200 ] || fail "/versions.json returns 200 (got $status)"
 ok "/versions.json returns 200"
 
+# Share cards are rendered at build time; the page's og:image must point at one that exists.
+get /guide/installation/
+grep -q 'property="og:image" content="https://moonlit.rs/og/guide/installation.png"' "$tmp/b" ||
+  fail "/guide/installation/ links its own share card"
+get /og/guide/installation.png
+[ "$status" = 200 ] || fail "/og/guide/installation.png returns 200 (got $status)"
+[ "$(header Content-Type)" = "image/png" ] || fail "/og/guide/installation.png is a PNG (got $(header Content-Type))"
+ok "/guide/installation/ has a share card"
+
 get /no-such-page/
 [ "$status" = 404 ] || fail "/no-such-page/ returns 404 (got $status)"
 ok "/no-such-page/ returns 404"

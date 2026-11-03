@@ -1,6 +1,6 @@
 ---
 title: Reference Documentation
-description: Comprehensive reference documentation for Moonlit
+description: "Technical reference for Moonlit: the CLI, the pipeline file, exit codes and errors, the plugin system, the Rust plugin SDK, and the WIT contract"
 ---
 
 Welcome to the Moonlit reference documentation. This section provides detailed technical information about Moonlit's components, APIs, and configuration options.

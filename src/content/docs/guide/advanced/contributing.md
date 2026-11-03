@@ -1,6 +1,6 @@
 ---
 title: Contributing
-description: How to build, test, and submit changes to Moonlit
+description: Where the Moonlit source lives, how to build and test it locally, the commit message format, and the DCO sign-off every commit needs
 ---
 
 Thanks for your interest in improving Moonlit. This page covers where the code lives, the local build and test loop, and the sign-off required on every commit.

@@ -1,6 +1,6 @@
 ---
 title: Publishing a Plugin
-description: Push a built plugin component to an OCI registry and reference it from a pipeline
+description: "Push a built Moonlit plugin to any OCI registry, the same way as a container image, then reference it from a pipeline with an oci:// source"
 ---
 
 Moonlit distributes plugins as [OCI](https://opencontainers.org/) artifacts, using the same registries and tooling as container images. Once a plugin component is [built](./custom-plugins.md#building), publishing it makes it pullable from any pipeline through an `oci://` reference, with no files to hand around.

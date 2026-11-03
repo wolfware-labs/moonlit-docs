@@ -1,6 +1,6 @@
 ---
 title: Authoring a Plugin
-description: Scaffold, implement, build, and inspect a Moonlit plugin with the Rust plugin development kit
+description: "Write a Moonlit plugin in Rust with the plugin development kit: scaffold the crate, implement its middlewares, and build a WASI Preview 2 component"
 ---
 
 Moonlit plugins are **WebAssembly components**, built for WASI Preview 2 and the component model, that export a small set of functions the engine calls into: `describe`, `init`, `list-middlewares`, and `execute` (see [Plugins System](../concepts/plugins.md) for the conceptual overview). You write plugins in Rust against the [`moonlit-pdk`](https://crates.io/crates/moonlit-pdk) crate (the plugin development kit), which generates all of that glue for you: you implement typed `Middleware` structs and declare them in one `moonlit_plugin!` block.
