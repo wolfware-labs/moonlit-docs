@@ -9,15 +9,9 @@ import {
   DESCRIPTION,
   DOCS_REPOSITORY,
   REPOSITORY,
-  SHARE_IMAGE,
-  SHARE_IMAGE_ALT,
-  SHARE_IMAGE_HEIGHT,
-  SHARE_IMAGE_WIDTH,
   SITE,
   SITE_NAME,
 } from './src/lib/site.mjs';
-
-const shareImage = new URL(SHARE_IMAGE, SITE).href;
 
 const page = (label, slug) => ({ label, slug });
 
@@ -43,12 +37,6 @@ export default defineConfig({
       favicon: '/logo.png',
       head: [
         { tag: 'meta', attrs: { property: 'og:site_name', content: SITE_NAME } },
-        { tag: 'meta', attrs: { property: 'og:image', content: shareImage } },
-        { tag: 'meta', attrs: { property: 'og:image:width', content: SHARE_IMAGE_WIDTH } },
-        { tag: 'meta', attrs: { property: 'og:image:height', content: SHARE_IMAGE_HEIGHT } },
-        { tag: 'meta', attrs: { property: 'og:image:alt', content: SHARE_IMAGE_ALT } },
-        { tag: 'meta', attrs: { name: 'twitter:image', content: shareImage } },
-        { tag: 'meta', attrs: { name: 'twitter:image:alt', content: SHARE_IMAGE_ALT } },
       ],
       editLink: { baseUrl: `${DOCS_REPOSITORY}/edit/main/` },
       lastUpdated: true,
