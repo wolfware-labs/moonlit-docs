@@ -44,8 +44,13 @@ security_headers() {
 
 get /
 [ "$status" = 200 ] || fail "/ returns 200 (got $status)"
-grep -q '<title>Moonlit' "$tmp/b" || fail "/ is the landing page"
-ok "/ returns the landing page"
+home_title='Moonlit: build and release automation in Rust and WASM'
+home_description='A Rust and WebAssembly build and release automation engine. Declare your pipeline in YAML and sandboxed WASM plugins do the rest.'
+grep -qF "<title>$home_title</title>" "$tmp/b" || fail "/ has the home page title"
+grep -qF "property=\"og:title\" content=\"$home_title\"" "$tmp/b" || fail "/ og:title is the home page title"
+grep -qF "name=\"twitter:title\" content=\"$home_title\"" "$tmp/b" || fail "/ twitter:title is the home page title"
+grep -qF "name=\"description\" content=\"$home_description\"" "$tmp/b" || fail "/ keeps its description"
+ok "/ returns the landing page with its title and description"
 security_headers /
 ok "/ sends the security headers"
 cp "$tmp/b" "$tmp/index.html"

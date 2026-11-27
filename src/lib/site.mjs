@@ -6,6 +6,8 @@ export const DOCS_REPOSITORY = 'https://github.com/wolfware-labs/moonlit-docs';
 // each plugin package. The docs link here instead of keeping a second copy.
 export const REGISTRY_URL = 'https://registry.moonlit.rs';
 export const TAGLINE = 'Bring light to your release process';
+// The landing page's <title>, also its og:title and twitter:title.
+export const HOME_TITLE = 'Moonlit: build and release automation in Rust and WASM';
 export const DESCRIPTION =
   'A Rust and WebAssembly build and release automation engine. Declare your pipeline in YAML and sandboxed WASM plugins do the rest.';
 // Every page gets its own share card, rendered at build time by src/pages/og/[...slug].png.ts.

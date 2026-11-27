@@ -2,6 +2,7 @@
 import '../styles/landing.css';
 import {
   DESCRIPTION,
+  HOME_TITLE,
   REPOSITORY,
   SITE_NAME,
   TAGLINE,
@@ -9,7 +10,7 @@ import {
   ogImageAlt,
 } from '../lib/site.mjs';
 
-const title = `${SITE_NAME} - ${TAGLINE}`;
+const title = HOME_TITLE;
 const canonical = new URL(Astro.url.pathname, Astro.site).href;
 const image = new URL(ogImage(), Astro.site).href;
 const imageAlt = ogImageAlt(TAGLINE);
